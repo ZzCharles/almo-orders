@@ -1,16 +1,19 @@
 {
+  "id": "/almo-orders/",
   "name": "Almo Orders",
-  "short_name": "Almo",
+  "short_name": "Almo Orders",
+  "description": "Send orders and prep requests to the Almo kitchen.",
   "start_url": ".",
+  "scope": ".",
   "display": "standalone",
-  "theme_color": "#F1EFE6",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "portrait",
   "background_color": "#F1EFE6",
+  "theme_color": "#F1EFE6",
+  "categories": ["productivity", "business"],
   "icons": [
-    {
-      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='48' fill='%23A5372F'/%3E%3Ctext x='50' y='68' text-anchor='middle' fill='white' font-size='48' font-family='sans-serif'%3EA%3C/text%3E%3C/svg%3E",
-      "sizes": "100x100",
-      "type": "image/svg+xml",
-      "purpose": "any"
-    }
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }
