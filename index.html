@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <link rel="manifest" href="manifest.json">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Almo Orders</title>
@@ -9,11 +8,8 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Almo Orders">
-
-<!-- PWA manifest with a clean icon -->
-<link rel="manifest" href="data:application/manifest+json,%7B%22name%22%3A%22Almo%20Orders%22%2C%22short_name%22%3A%22Almo%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22theme_color%22%3A%22%23F1EFE6%22%2C%22background_color%22%3A%22%23F1EFE6%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22data%3Aimage%2Fsvg%2Bxml%3Bcharset%3Dutf-8%2C%253Csvg%20xmlns%253D%27http%253A%252F%252Fwww.w3.org%252F2000%252Fsvg%27%20viewBox%253D%270%200%20100%20100%27%253E%253Ccircle%20cx%253D%2750%27%20cy%253D%2750%27%20r%253D%2748%27%20fill%253D%27%2523A5372F%27%252F%253E%253Ctext%20x%253D%2750%27%20y%253D%2768%27%20text-anchor%253D%27middle%27%20fill%253D%27white%27%20font-size%253D%2748%27%20font-family%253D%27sans-serif%27%253EA%253C%252Ftext%253E%253C%252Fsvg%253E%22%2C%22sizes%22%3A%22100x100%22%2C%22type%22%3A%22image%2Fsvg%2Bxml%22%7D%5D%7D">
+<link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='48' fill='%23A5372F'/%3E%3Ctext x='50' y='68' text-anchor='middle' fill='white' font-size='48' font-family='sans-serif'%3EA%3C/text%3E%3C/svg%3E">
-
 <style>
 :root{--paper:#F1EFE6;--ink:#262319;--muted:#8A8677;--stamp:#A5372F;--line:#E7E4D7;--card:#FFFFFF;}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
@@ -43,6 +39,8 @@ body{background:var(--paper);font-family:'Figtree',-apple-system,BlinkMacSystemF
 .review-line{display:flex;justify-content:space-between;font-size:15px;margin-bottom:6px;}
 .review-line .name{font-weight:600;}
 .back-btn{background:none;border:none;color:var(--muted);font-size:14px;cursor:pointer;margin-bottom:16px;display:inline-block;}
+.welcome-screen{text-align:center;margin-top:60px;}
+.welcome-screen input{width:100%;padding:12px;font-size:16px;border:1px solid var(--line);border-radius:12px;margin:16px 0;font-family:inherit;}
 </style>
 </head>
 <body>
@@ -51,7 +49,6 @@ body{background:var(--paper);font-family:'Figtree',-apple-system,BlinkMacSystemF
 <script>
 // ====== PRODUCT CATALOGUE ======
 const products = [
-  // VEGGIES
   {id:"p12", name:"Sliced Button Mushroom", unit:"kg", cat:"Veggies", inc:1},
   {id:"p13", name:"Flat White Mushrooms", unit:"kg", cat:"Veggies", inc:1},
   {id:"p14", name:"Green Capsicum", unit:"kg", cat:"Veggies", inc:1},
@@ -75,7 +72,6 @@ const products = [
   {id:"p32", name:"Rosemary", unit:"bunch", cat:"Veggies", inc:1},
   {id:"p33", name:"Whole Garlic", unit:"kg", cat:"Veggies", inc:0.5},
   {id:"p34", name:"Fennel Bulb", unit:"each", cat:"Veggies", inc:1},
-  // PROTEIN
   {id:"p1",  name:"Chicken Thigh", unit:"kg", cat:"Protein", inc:5},
   {id:"p2",  name:"Raw Frozen Prawns", unit:"pkt", cat:"Protein", inc:1},
   {id:"p3",  name:"Loligo Squid", unit:"box", cat:"Protein", inc:1},
@@ -89,7 +85,6 @@ const products = [
   {id:"p11", name:"Pork Belly (no bone)", unit:"kg", cat:"Protein", inc:1},
   {id:"p35", name:"Fior di Latte", unit:"kg", cat:"Protein", inc:2},
   {id:"p40", name:"Pepperoni", unit:"box", cat:"Protein", inc:1},
-  // DRY GOODS
   {id:"p36", name:"Fresh Lasagna Sheets", unit:"kg", cat:"Dry Goods", inc:1},
   {id:"p37", name:"Gastronomi Gnocchi", unit:"kg", cat:"Dry Goods", inc:1},
   {id:"p38", name:"Squid Ink Spaghetti", unit:"kg", cat:"Dry Goods", inc:1},
@@ -97,10 +92,12 @@ const products = [
 ];
 
 // ====== APP STATE ======
-let cart = {}; // { productId: quantity }
-let view = "home"; // "home", "categories", "category", "review"
+let cart = {};
+let view = "home";
 let currentCategory = null;
 const STORAGE_KEY = 'sous-chef-cart';
+const NAME_KEY = 'sous-chef-username';
+let username = localStorage.getItem(NAME_KEY) || '';
 
 function loadCart(){ try{ const r=localStorage.getItem(STORAGE_KEY); cart=r?JSON.parse(r):{}; }catch(e){ cart={}; } }
 function saveCart(){ try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(cart)); }catch(e){} }
@@ -111,11 +108,42 @@ function showToast(msg){
   setTimeout(()=>t.classList.remove('show'), 1800);
 }
 
+function setUsername(name){
+  username = name.trim();
+  localStorage.setItem(NAME_KEY, username);
+  render();
+}
+
 function render(){
   const app=document.getElementById('app');
+  if(!username){
+    // First-run prompt
+    app.innerHTML = `
+      <div class="brand"><h1>Almo Orders</h1></div>
+      <div class="welcome-screen">
+        <h2>Welcome</h2>
+        <p>What's your name?</p>
+        <input id="username-input" placeholder="e.g. Anil" autofocus>
+        <button class="btn" id="start-btn">Start ordering</button>
+      </div>
+    `;
+    document.getElementById('start-btn').addEventListener('click', ()=>{
+      const name = document.getElementById('username-input').value.trim();
+      if(!name){ showToast('Please enter your name'); return; }
+      setUsername(name);
+    });
+    document.getElementById('username-input').addEventListener('keydown', (e)=>{
+      if(e.key === 'Enter'){
+        const name = e.target.value.trim();
+        if(name) setUsername(name);
+      }
+    });
+    return;
+  }
+
   if(view === "home"){
     app.innerHTML = `
-      <div class="brand"><h1>Almo Orders</h1><span class="tag">v1.0</span></div>
+      <div class="brand"><h1>Almo Orders</h1><span class="tag">Hi ${username}</span></div>
       <div class="tile" id="go-request">
         <div class="tile-title">Request Orders</div>
         <div class="tile-sub">Veggies · Dry Goods · Protein</div>
@@ -125,7 +153,7 @@ function render(){
   }
   else if(view === "categories"){
     const categories = ['Veggies','Dry Goods','Protein'];
-    let html = `<div class="brand"><h1>Almo Orders</h1><span class="tag">v1.0</span></div>`;
+    let html = `<div class="brand"><h1>Almo Orders</h1><span class="tag">Hi ${username}</span></div>`;
     html += `<button class="back-btn" id="back-home">&larr; Back</button>`;
     html += `<div style="font-size:16px;font-weight:800;margin-bottom:14px;">Select category</div>`;
     categories.forEach(cat => {
@@ -149,7 +177,7 @@ function render(){
   }
   else if(view === "category" && currentCategory){
     const prods = products.filter(p=>p.cat===currentCategory);
-    let html = `<div class="brand"><h1>Almo Orders</h1><span class="tag">v1.0</span></div>`;
+    let html = `<div class="brand"><h1>Almo Orders</h1><span class="tag">Hi ${username}</span></div>`;
     html += `<button class="back-btn" id="back-cat">&larr; Back to categories</button>`;
     html += `<div class="section-title">${currentCategory}</div>`;
     prods.forEach(p=>{
@@ -201,7 +229,7 @@ function render(){
   }
   else if(view === "review"){
     const items = Object.entries(cart).filter(([id,qty])=>qty>0);
-    let html = `<div class="brand"><h1>Almo Orders</h1><span class="tag">v1.0</span></div>`;
+    let html = `<div class="brand"><h1>Almo Orders</h1><span class="tag">Hi ${username}</span></div>`;
     html += `<button class="back-btn" id="back-cat-rev">&larr; Back to categories</button>`;
     html += `<div style="font-size:16px;font-weight:800;margin-bottom:14px;">Review your order</div>`;
     if(items.length===0){
@@ -228,13 +256,15 @@ function render(){
           const res=await fetch('https://orders.charlesbobby253.workers.dev/api/order', {
             method:'POST',
             headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({items:orderItems})
+            body:JSON.stringify({ items:orderItems, sender:username })
           });
           if(res.ok){
             showToast('Order sent!');
-            // optionally clear cart after successful send
-            // cart = {};
-            // saveCart();
+            // Clear cart
+            cart = {};
+            saveCart();
+            view = "home";
+            render();
           } else {
             showToast('Failed to send');
           }
@@ -251,7 +281,6 @@ function render(){
 loadCart();
 render();
 
-// Service worker for offline caching
 if('serviceWorker' in navigator){
   window.addEventListener('load', ()=>{
     navigator.serviceWorker.register('data:application/javascript,self.addEventListener(%22install%22,()=>{self.skipWaiting()});self.addEventListener(%22activate%22,()=>{clients.claim()});self.addEventListener(%22fetch%22,(e)=>{e.respondWith(caches.match(e.request).then((r)=>r||fetch(e.request)))})');
