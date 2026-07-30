@@ -44,7 +44,6 @@ body{
 .btn.ghost:active{background:#E3E0D2;color:var(--ink);}
 .btn.danger{background:var(--stamp);}
 .btn.danger:active{background:var(--stamp-dark);}
-.btn-row{display:flex;gap:8px;}
 
 .card,.tile{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:0 1px 2px rgba(38,35,25,.04),0 8px 22px rgba(38,35,25,.05);}
 .tile{display:flex;align-items:center;justify-content:space-between;width:100%;text-align:left;padding:22px 18px;margin-bottom:12px;font-family:inherit;cursor:pointer;}
@@ -55,11 +54,26 @@ body{
 .chev{color:var(--muted);font-size:18px;}
 
 .card{padding:16px 16px;margin-bottom:12px;}
+.card.tight{padding:4px 16px;}
 .section-label{font-size:11px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);margin:0 0 10px 2px;}
 .screen-title{font-size:22px;font-weight:800;letter-spacing:-0.3px;margin:0 0 4px;}
 .screen-sub{font-size:13px;color:var(--muted);margin:0 0 16px;}
 
-.product-line{display:flex;align-items:center;gap:10px;padding:11px 2px;border-bottom:1px solid #F1EFE4;}
+.search-wrap{position:relative;margin-bottom:12px;}
+.search-wrap input{width:100%;font-family:inherit;font-size:16px;padding:13px 40px 13px 14px;border:1px solid var(--line);border-radius:999px;background:#fff;color:var(--ink);}
+.search-wrap input:focus{outline:none;border-color:var(--ink);}
+.search-clear{position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:none;font-family:inherit;font-size:20px;color:var(--muted);width:32px;height:32px;cursor:pointer;display:none;}
+.search-wrap.filled .search-clear{display:block;}
+
+.sec-head{font-size:11px;font-weight:800;letter-spacing:1.4px;text-transform:uppercase;color:var(--muted);padding:16px 2px 7px;border-bottom:1px solid var(--line);}
+.sec-head:first-child{padding-top:10px;}
+.filter-row{display:flex;gap:7px;overflow-x:auto;padding:0 0 12px;margin:0 -16px 0;padding-left:16px;padding-right:16px;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+.filter-row::-webkit-scrollbar{display:none;}
+.filter-chip{flex:0 0 auto;font-family:inherit;font-size:12px;font-weight:700;padding:9px 15px;border:1px solid var(--line);border-radius:999px;background:#fff;color:var(--ink-soft);cursor:pointer;display:flex;align-items:center;gap:6px;}
+.filter-chip.on{background:var(--ink);border-color:var(--ink);color:#fff;}
+.fc-dot{background:var(--stamp);color:#fff;border-radius:999px;font-size:10px;font-weight:800;min-width:16px;padding:1px 4px;text-align:center;}
+.filter-chip.on .fc-dot{background:#fff;color:var(--ink);}
+.product-line{display:flex;align-items:center;gap:10px;padding:11px 2px;border-bottom:1px solid #F5F3EA;}
 .product-line:last-child{border-bottom:none;}
 .product-info{flex:1;min-width:0;}
 .product-name{font-size:15px;font-weight:600;}
@@ -73,9 +87,9 @@ body{
 .stepper button:active{background:var(--ink);color:#fff;}
 .stepper .qty-input{width:44px;height:34px;border:1px solid var(--line);border-left:none;border-right:none;background:#fff;font-family:inherit;font-size:15px;font-weight:700;text-align:center;padding:0;-webkit-appearance:none;appearance:none;border-radius:0;}
 
-.review-group{margin-bottom:6px;}
-.review-group-label{font-size:11px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);padding:12px 2px 6px;border-bottom:1px solid var(--line);}
-.review-line{display:flex;align-items:center;gap:10px;padding:11px 2px;border-bottom:1px solid #F5F3EA;}
+.sticky-foot{position:sticky;bottom:0;padding:12px 0 4px;background:linear-gradient(to bottom, rgba(241,239,230,0) 0%, var(--paper) 34%);}
+
+.review-line{display:flex;align-items:center;gap:10px;padding:12px 2px;border-bottom:1px solid #F5F3EA;}
 .review-line:last-child{border-bottom:none;}
 .review-name{flex:1;font-size:15px;font-weight:600;min-width:0;}
 .review-qty{font-size:15px;font-weight:700;white-space:nowrap;}
@@ -92,7 +106,7 @@ body{
 .prep-text{font-size:15px;font-weight:600;line-height:1.35;white-space:pre-wrap;word-break:break-word;}
 .prep-meta{font-size:11px;color:var(--muted);margin-top:3px;}
 .prep-add{display:flex;flex-direction:column;gap:10px;}
-textarea,input[type=text]{width:100%;font-family:inherit;font-size:15px;padding:12px;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--ink);resize:vertical;}
+textarea,input[type=text]{width:100%;font-family:inherit;font-size:16px;padding:12px;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--ink);resize:vertical;}
 textarea:focus,input[type=text]:focus{outline:none;border-color:var(--ink);}
 textarea{min-height:78px;}
 
@@ -124,68 +138,57 @@ textarea{min-height:78px;}
 <script>
 const API = 'https://orders.charlesbobby253.workers.dev';
 
-/* ====== PRODUCT CATALOGUE ======
-   IDs must match the product IDs in The Pass, or the head chef sees raw codes. */
-const products = [
-  {id:"p12", name:"Sliced Button Mushroom", unit:"kg", cat:"Veggies", inc:1},
-  {id:"p13", name:"Flat White Mushrooms", unit:"kg", cat:"Veggies", inc:1},
-  {id:"p14", name:"Green Capsicum", unit:"kg", cat:"Veggies", inc:1},
-  {id:"p15", name:"Pineapple", unit:"each", cat:"Veggies", inc:1},
-  {id:"p16", name:"Peeled Garlic", unit:"kg", cat:"Veggies", inc:1},
-  {id:"p17", name:"Royal Blue Potatoes", unit:"kg", cat:"Veggies", inc:1},
-  {id:"p18", name:"Peeled White Onions", unit:"kg", cat:"Veggies", inc:1},
-  {id:"p19", name:"Lemon", unit:"kg", cat:"Veggies", inc:1},
-  {id:"p20", name:"Black Garlic", unit:"pkt", cat:"Veggies", inc:1},
-  {id:"p21", name:"Chives", unit:"market bunch", cat:"Veggies", inc:1},
-  {id:"p22", name:"Red Cherry Tomatoes", unit:"punnet", cat:"Veggies", inc:1},
-  {id:"p23", name:"Vine Tomatoes", unit:"kg", cat:"Veggies", inc:1},
-  {id:"p24", name:"Rocket", unit:"kg", cat:"Veggies", inc:0.5},
-  {id:"p25", name:"Leb. Cucumber", unit:"kg", cat:"Veggies", inc:1},
-  {id:"p26", name:"Parsley", unit:"market bunch", cat:"Veggies", inc:1},
-  {id:"p27", name:"Salad Burnette", unit:"punnet", cat:"Veggies", inc:1},
-  {id:"p28", name:"Spanish Onions", unit:"kg", cat:"Veggies", inc:1},
-  {id:"p29", name:"Brown Onions", unit:"kg", cat:"Veggies", inc:1},
-  {id:"p30", name:"Celery", unit:"each", cat:"Veggies", inc:1},
-  {id:"p31", name:"Carrots", unit:"kg", cat:"Veggies", inc:1},
-  {id:"p32", name:"Rosemary", unit:"bunch", cat:"Veggies", inc:1},
-  {id:"p33", name:"Whole Garlic", unit:"kg", cat:"Veggies", inc:0.5},
-  {id:"p34", name:"Fennel Bulb", unit:"each", cat:"Veggies", inc:1},
-  {id:"p1",  name:"Chicken Thigh", unit:"kg", cat:"Protein", inc:5},
-  {id:"p2",  name:"Raw Frozen Prawns", unit:"pkt", cat:"Protein", inc:1},
-  {id:"p3",  name:"Loligo Squid", unit:"box", cat:"Protein", inc:1},
-  {id:"p4",  name:"Speck", unit:"pkt", cat:"Protein", inc:1},
-  {id:"p5",  name:"Beef Mince", unit:"kg", cat:"Protein", inc:1},
-  {id:"p6",  name:"Beef Cheeks", unit:"kg", cat:"Protein", inc:1},
-  {id:"p7",  name:"Kransky Sausage", unit:"pkt", cat:"Protein", inc:1},
-  {id:"p8",  name:"Pork Mince", unit:"kg", cat:"Protein", inc:1},
-  {id:"p9",  name:"Italian Style Thick Sausages Mix", unit:"kg", cat:"Protein", inc:1},
-  {id:"p10", name:"Mortadella", unit:"kg", cat:"Protein", inc:1},
-  {id:"p11", name:"Pork Belly (no bone)", unit:"kg", cat:"Protein", inc:1},
-  {id:"p35", name:"Fior di Latte", unit:"kg", cat:"Protein", inc:2},
-  {id:"p40", name:"Pepperoni", unit:"box", cat:"Protein", inc:1},
-  {id:"p36", name:"Fresh Lasagna Sheets", unit:"kg", cat:"Dry Goods", inc:1},
-  {id:"p37", name:"Gastronomi Gnocchi", unit:"kg", cat:"Dry Goods", inc:1},
-  {id:"p38", name:"Squid Ink Spaghetti", unit:"kg", cat:"Dry Goods", inc:1},
-  {id:"p39", name:"Calamarata Pasta", unit:"kg", cat:"Dry Goods", inc:1}
+/* The product list comes from The Pass via the Worker. This copy is only a
+   cold-start fallback for a brand-new install with no connection. */
+const FALLBACK = [
+  {id:"p5",name:"Beef Mince",unit:"kg",inc:1,cat:"Protein"},
+  {id:"p1",name:"Chicken Thigh",unit:"kg",inc:5,cat:"Protein"},
+  {id:"p35",name:"Fior di Latte",unit:"kg",inc:2,cat:"Protein"},
+  {id:"p18",name:"Peeled White Onions",unit:"kg",inc:1,cat:"Veggies"},
+  {id:"p40",name:"Pepperoni",unit:"box",inc:1,cat:"Protein"},
+  {id:"p12",name:"Sliced Button Mushroom",unit:"kg",inc:1,cat:"Veggies"}
 ];
-const CATEGORIES = ['Veggies','Protein','Dry Goods'];
+const FALLBACK_CATS = ['Veggies','Protein','Dry Goods'];
+const OTHER = 'Everything else';
 
 /* ====== STATE ====== */
 const CART_KEY = 'almo-orders-cart';
 const NAME_KEY = 'almo-orders-name';
+const CAT_KEY  = 'almo-orders-catalogue';
+
+let products = FALLBACK.slice();
+let categories = FALLBACK_CATS.slice();
+let catalogue = { loaded:false, stale:true, timestamp:0 };
+let activeCat = null;   // null = show every section
 let cart = {};
 let username = '';
 let view = 'home';
-let currentCategory = null;
-let prep = { items: [], loaded:false, loading:false, failed:false };
+let search = '';
+let prep = { items:[], loaded:false, loading:false, failed:false };
 let sending = false;
 
 function loadLocal(){
   try{ username = localStorage.getItem(NAME_KEY) || ''; }catch(e){ username = ''; }
   try{ const r = localStorage.getItem(CART_KEY); cart = r ? JSON.parse(r) : {}; }catch(e){ cart = {}; }
+  try{
+    const raw = localStorage.getItem(CAT_KEY);
+    if(raw){
+      const c = JSON.parse(raw);
+      if(Array.isArray(c.products) && c.products.length){
+        products = c.products;
+        if(Array.isArray(c.categories) && c.categories.length) categories = c.categories;
+        catalogue.timestamp = c.timestamp || 0;
+        catalogue.loaded = true;
+      }
+    }
+  }catch(e){}
+  sortProducts();
 }
 function saveCart(){ try{ localStorage.setItem(CART_KEY, JSON.stringify(cart)); }catch(e){} }
 function saveName(){ try{ localStorage.setItem(NAME_KEY, username); }catch(e){} }
+function sortProducts(){
+  products.sort((a,b)=> String(a.name).localeCompare(String(b.name),'en',{sensitivity:'base'}));
+}
 
 function esc(s){
   return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -198,7 +201,9 @@ function showToast(msg){
   showToast._t = setTimeout(()=>t.classList.remove('show'), 2200);
 }
 function prod(id){ return products.find(p => p.id === id); }
-function cartItems(){ return Object.entries(cart).filter(([id,q]) => q > 0); }
+function cartItems(){
+  return Object.entries(cart).filter(([id,q]) => q > 0 && prod(id));
+}
 function cartCount(){ return cartItems().length; }
 function round2(n){ return Math.round(n * 100) / 100; }
 function timeAgo(ts){
@@ -207,15 +212,45 @@ function timeAgo(ts){
   if(mins < 60) return mins + 'm ago';
   const hrs = Math.floor(mins / 60);
   if(hrs < 24) return hrs + 'h ago';
-  return Math.floor(hrs / 24) + 'd ago';
+  const days = Math.floor(hrs / 24);
+  return days + (days === 1 ? ' day ago' : ' days ago');
 }
 
-function goto(v, cat){
+function goto(v){
   view = v;
-  if(cat !== undefined) currentCategory = cat;
-  try{ history.pushState({view:v, cat:currentCategory}, ''); }catch(e){}
+  if(v !== 'order') search = '';
+  try{ history.pushState({view:v}, ''); }catch(e){}
   render();
   window.scrollTo(0,0);
+}
+
+/* ====== CATALOGUE ====== */
+async function fetchCatalogue(){
+  try{
+    const res = await fetch(API + '/api/catalogue', {cache:'no-store'});
+    const data = await res.json();
+    if(!Array.isArray(data.products) || data.products.length === 0){
+      catalogue.stale = true;
+      return;
+    }
+    products = data.products;
+    if(Array.isArray(data.categories) && data.categories.length) categories = data.categories;
+    sortProducts();
+    catalogue.timestamp = data.timestamp || Date.now();
+    catalogue.loaded = true;
+    catalogue.stale = false;
+    try{ localStorage.setItem(CAT_KEY, JSON.stringify({products:products, categories:categories, timestamp:catalogue.timestamp})); }catch(e){}
+    if(activeCat && sectionsInUse().indexOf(activeCat) < 0) activeCat = null;
+
+    // drop anything the head chef has since deleted
+    let pruned = false;
+    Object.keys(cart).forEach(id => { if(!prod(id)){ delete cart[id]; pruned = true; } });
+    if(pruned) saveCart();
+
+    render();
+  }catch(e){
+    catalogue.stale = true;
+  }
 }
 
 /* ====== PREP LIST ====== */
@@ -238,8 +273,7 @@ async function fetchPrep(){
 async function addPrep(text){
   try{
     const res = await fetch(API + '/api/prep', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
+      method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ text: text, by: username })
     });
     if(!res.ok) throw new Error();
@@ -258,8 +292,7 @@ async function clearPrep(id){
   render();
   try{
     const res = await fetch(API + '/api/prep/clear', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
+      method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ id: id })
     });
     if(!res.ok) throw new Error();
@@ -280,8 +313,7 @@ async function sendOrder(){
   sending = true; render();
   try{
     const res = await fetch(API + '/api/order', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
+      method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ items: items, sender: username })
     });
     if(!res.ok) throw new Error();
@@ -302,9 +334,7 @@ function render(){
   if(!username){ app.innerHTML = renderGate(); attach(); return; }
 
   let html = `<div class="brand"><h1>Almo Orders</h1><span class="tag">${esc(username)}</span></div>`;
-  if(view === 'home') html += renderHome();
-  else if(view === 'categories') html += renderCategories();
-  else if(view === 'category') html += renderCategory();
+  if(view === 'order') html += renderOrder();
   else if(view === 'review') html += renderReview();
   else if(view === 'sent') html += renderSent();
   else if(view === 'prep') html += renderPrep();
@@ -320,7 +350,7 @@ function renderGate(){
       <h2>Almo Orders</h2>
       <p>Send your orders and prep straight to the kitchen.</p>
       <label for="name-input">Your name</label>
-      <input type="text" id="name-input" placeholder="e.g. Anil" autocomplete="given-name" autocapitalize="words">
+      <input type="text" id="name-input" placeholder="First name" autocomplete="given-name" autocapitalize="words">
       <button class="btn" id="gate-go">Get started</button>
     </div>
   `;
@@ -330,10 +360,10 @@ function renderHome(){
   const n = cartCount();
   const open = prep.items.length;
   return `
-    <button class="tile" data-go="categories">
+    <button class="tile" data-go="order">
       <div>
         <div class="tile-title">Request an order</div>
-        <div class="tile-sub">Veggies · Protein · Dry Goods</div>
+        <div class="tile-sub">${products.length} product${products.length===1?'':'s'} across ${sectionsInUse().length} section${sectionsInUse().length===1?'':'s'}</div>
         ${n ? `<div class="tile-count">${n} item${n===1?'':'s'} not sent yet</div>` : ''}
       </div>
       <div class="chev">&rsaquo;</div>
@@ -350,87 +380,122 @@ function renderHome(){
   `;
 }
 
-function renderCategories(){
-  const n = cartCount();
-  let html = `<div class="crumb"><button data-go="home">&larr; Home</button></div>
-    <h2 class="screen-title">What do you need?</h2>
-    <p class="screen-sub">Pick a section, set your quantities, then review before it goes.</p>`;
-  CATEGORIES.forEach(cat => {
-    const inCat = products.filter(p => p.cat === cat);
-    const picked = inCat.filter(p => (cart[p.id] || 0) > 0).length;
-    html += `
-      <button class="tile" data-cat="${esc(cat)}">
-        <div>
-          <div class="tile-title">${esc(cat)}</div>
-          <div class="tile-sub">${inCat.length} items</div>
-          ${picked ? `<div class="tile-count">${picked} selected</div>` : ''}
-        </div>
-        <div class="chev">&rsaquo;</div>
-      </button>`;
-  });
-  html += `<div style="margin-top:20px;">
-    <button class="btn ${n?'':'ghost'}" id="to-review" ${n?'':'disabled'}>${n ? `Review ${n} item${n===1?'':'s'}` : 'Nothing selected yet'}</button>
-  </div>`;
-  return html;
+function sectionOf(p){
+  const c = (p.cat || '').trim();
+  return (c && categories.indexOf(c) > -1) ? c : (c || OTHER);
 }
 
-function renderCategory(){
-  const list = products.filter(p => p.cat === currentCategory);
-  let html = `<div class="crumb"><button data-go="categories">&larr; All sections</button></div>
-    <h2 class="screen-title">${esc(currentCategory)}</h2>
-    <p class="screen-sub">Leave anything you don't need at zero.</p>
-    <div class="card">`;
-  list.forEach(p => {
-    const qty = cart[p.id] || 0;
-    html += `
-      <div class="product-line ${qty>0?'has-qty':''}">
+/* Sections in the head chef's order, then any stragglers, then the catch-all. */
+function sectionsInUse(){
+  const used = [];
+  products.forEach(p => { const s = sectionOf(p); if(used.indexOf(s) < 0) used.push(s); });
+  const ordered = categories.filter(c => used.indexOf(c) > -1);
+  used.forEach(s => { if(ordered.indexOf(s) < 0 && s !== OTHER) ordered.push(s); });
+  if(used.indexOf(OTHER) > -1) ordered.push(OTHER);
+  return ordered;
+}
+
+function rowHTML(p){
+  const qty = cart[p.id] || 0;
+  return `
+      <div class="product-line ${qty>0?'has-qty':''}" data-row="${esc(p.id)}">
         <div class="product-info">
           <div class="product-name">${esc(p.name)}</div>
-          <div class="product-unit">${esc(p.unit)}</div>
+          <div class="product-unit">${esc(p.unit || '')}</div>
         </div>
         <div class="stepper">
-          <button data-dec="${p.id}" aria-label="Less ${esc(p.name)}">&minus;</button>
-          <input class="qty-input" data-input="${p.id}" value="${qty}" inputmode="decimal" aria-label="${esc(p.name)} quantity">
-          <button data-inc="${p.id}" aria-label="More ${esc(p.name)}">+</button>
+          <button data-dec="${esc(p.id)}" aria-label="Less ${esc(p.name)}">&minus;</button>
+          <input class="qty-input" data-input="${esc(p.id)}" value="${qty}" inputmode="decimal" aria-label="${esc(p.name)} quantity">
+          <button data-inc="${esc(p.id)}" aria-label="More ${esc(p.name)}">+</button>
         </div>
       </div>`;
+}
+
+function filterChipsHTML(){
+  const secs = sectionsInUse();
+  if(secs.length < 2) return '';
+  const chip = (label, val) => {
+    const on = (val === null && activeCat === null) || val === activeCat;
+    const n = val === null ? 0 : products.filter(p => sectionOf(p) === val && (cart[p.id]||0) > 0).length;
+    return `<button type="button" class="filter-chip ${on?'on':''}" data-filter="${val === null ? '' : esc(val)}">${esc(label)}${n?`<span class="fc-dot">${n}</span>`:''}</button>`;
+  };
+  return `<div class="filter-row">${chip('All', null)}${secs.map(s => chip(s, s)).join('')}</div>`;
+}
+
+function productListHTML(){
+  const q = search.trim().toLowerCase();
+
+  if(q){
+    const hits = products.filter(p => String(p.name).toLowerCase().indexOf(q) > -1);
+    if(hits.length === 0){
+      return `<div class="empty">Nothing matches "${esc(search.trim())}".<br>Ask the kitchen to add it.</div>`;
+    }
+    return hits.map(rowHTML).join('');
+  }
+
+  const secs = sectionsInUse().filter(s => !activeCat || s === activeCat);
+  let out = '';
+  secs.forEach(s => {
+    const inSec = products.filter(p => sectionOf(p) === s);
+    if(inSec.length === 0) return;
+    if(secs.length > 1 || !activeCat) out += `<div class="sec-head">${esc(s)}</div>`;
+    out += inSec.map(rowHTML).join('');
   });
-  html += `</div><div style="margin-top:16px;"><button class="btn" data-go="categories">Done</button></div>`;
-  return html;
+  return out || `<div class="empty">Nothing in this section yet.</div>`;
+}
+
+function reviewLabel(){
+  const n = cartCount();
+  return n ? `Review ${n} item${n===1?'':'s'}` : 'Nothing selected yet';
+}
+
+function renderOrder(){
+  return `
+    <div class="crumb"><button data-go="home">&larr; Home</button></div>
+    <h2 class="screen-title">What do you need?</h2>
+    <p class="screen-sub">Set your quantities, then review before it goes.</p>
+    <div class="search-wrap ${search?'filled':''}">
+      <input type="text" id="search-input" placeholder="Search products" value="${esc(search)}" autocomplete="off" autocorrect="off" spellcheck="false">
+      <button class="search-clear" id="search-clear" aria-label="Clear search">&times;</button>
+    </div>
+    <div id="filter-holder">${search ? '' : filterChipsHTML()}</div>
+    <div class="card tight" id="prod-list">${productListHTML()}</div>
+    ${catalogue.stale && !catalogue.loaded ? `<div class="offline-note">Offline. Showing a short fallback list until the kitchen list loads.</div>` : ''}
+    <div class="sticky-foot">
+      <button class="btn ${cartCount()?'':'ghost'}" id="to-review" ${cartCount()?'':'disabled'}>${reviewLabel()}</button>
+    </div>
+  `;
 }
 
 function renderReview(){
   const items = cartItems();
   if(items.length === 0){
-    return `<div class="crumb"><button data-go="categories">&larr; Back</button></div>
+    return `<div class="crumb"><button data-go="order">&larr; Back</button></div>
       <div class="empty">Nothing on this order yet.<br>Go back and add a few things.</div>`;
   }
 
-  let lineCount = 0;
-  let groups = '';
-  CATEGORIES.forEach(cat => {
-    const inCat = items.filter(([id]) => { const p = prod(id); return p && p.cat === cat; });
-    if(inCat.length === 0) return;
-    lineCount += inCat.length;
-    groups += `<div class="review-group"><div class="review-group-label">${esc(cat)}</div>`;
-    inCat.forEach(([id, qty]) => {
-      const p = prod(id);
-      groups += `
-        <div class="review-line">
-          <div class="review-name">${esc(p.name)}</div>
-          <div class="review-qty">${qty} ${esc(p.unit)}</div>
-          <button class="review-del" data-remove="${id}" aria-label="Remove ${esc(p.name)}">&times;</button>
-        </div>`;
-    });
-    groups += `</div>`;
-  });
+  const picked = items.map(([id,qty]) => ({ p: prod(id), qty: qty }));
+  const secs = sectionsInUse().filter(s => picked.some(l => sectionOf(l.p) === s));
+  const lines = secs.map(s => {
+    const inSec = picked
+      .filter(l => sectionOf(l.p) === s)
+      .sort((a,b)=> String(a.p.name).localeCompare(String(b.p.name),'en',{sensitivity:'base'}));
+    return `
+      ${secs.length > 1 ? `<div class="sec-head">${esc(s)}</div>` : ''}
+      ${inSec.map(l => `
+      <div class="review-line">
+        <div class="review-name">${esc(l.p.name)}</div>
+        <div class="review-qty">${l.qty} ${esc(l.p.unit || '')}</div>
+        <button class="review-del" data-remove="${esc(l.p.id)}" aria-label="Remove ${esc(l.p.name)}">&times;</button>
+      </div>`).join('')}`;
+  }).join('');
 
   return `
-    <div class="crumb"><button data-go="categories">&larr; Keep adding</button></div>
+    <div class="crumb"><button data-go="order">&larr; Keep adding</button></div>
     <h2 class="screen-title">Check it over</h2>
     <p class="screen-sub">This is what the kitchen will see.</p>
-    <div class="card">${groups}</div>
-    <div class="review-total"><span>${lineCount} line${lineCount===1?'':'s'}</span><span>From ${esc(username)}</span></div>
+    <div class="card tight">${lines}</div>
+    <div class="review-total"><span>${items.length} line${items.length===1?'':'s'}</span><span>From ${esc(username)}</span></div>
     <button class="btn" id="send-btn" ${sending?'disabled':''}>${sending ? 'Sending…' : 'Send to kitchen'}</button>
   `;
 }
@@ -451,7 +516,7 @@ function renderPrep(){
   if(!prep.loaded && prep.loading){
     body = `<div class="empty">Loading the prep list…</div>`;
   } else if(prep.failed && prep.items.length === 0){
-    body = `<div class="empty">Can't reach the prep list right now.<br>Check your connection and pull down to retry.</div>`;
+    body = `<div class="empty">Can't reach the prep list right now.<br>Check your connection and reopen this screen.</div>`;
   } else if(prep.items.length === 0){
     body = `<div class="empty">Nothing on the prep list.<br>Add the first line below.</div>`;
   } else {
@@ -481,7 +546,80 @@ function renderPrep(){
   `;
 }
 
+/* ====== IN-PLACE UPDATES ======
+   Stepper taps and typing in the search box patch the DOM instead of
+   re-rendering the screen, so the keyboard stays up and the list doesn't jump. */
+
+function refreshList(){
+  const holder = document.getElementById('prod-list');
+  if(!holder) return;
+  const fh = document.getElementById('filter-holder');
+  if(fh){ fh.innerHTML = search ? '' : filterChipsHTML(); attachFilterHandlers(); }
+  holder.innerHTML = productListHTML();
+  attachProductHandlers();
+  const wrap = document.querySelector('.search-wrap');
+  if(wrap) wrap.classList.toggle('filled', !!search);
+}
+
+function attachFilterHandlers(){
+  document.querySelectorAll('[data-filter]').forEach(b => {
+    b.addEventListener('click', ()=>{
+      activeCat = b.dataset.filter || null;
+      refreshList();
+      const list = document.getElementById('prod-list');
+      if(list && list.scrollIntoView) list.scrollIntoView({block:'start'});
+    });
+  });
+}
+
+function refreshFooter(){
+  const btn = document.getElementById('to-review');
+  if(!btn) return;
+  const n = cartCount();
+  btn.textContent = reviewLabel();
+  btn.disabled = !n;
+  btn.classList.toggle('ghost', !n);
+}
+
+function setQty(id, value){
+  const v = Math.max(0, round2(value));
+  if(v === 0) delete cart[id]; else cart[id] = v;
+  saveCart();
+  const row = document.querySelector('[data-row="' + id + '"]');
+  if(row){
+    row.classList.toggle('has-qty', v > 0);
+    const input = row.querySelector('[data-input]');
+    if(input && document.activeElement !== input) input.value = v;
+  }
+  refreshFooter();
+  const fh = document.getElementById('filter-holder');
+  if(fh && !search){ fh.innerHTML = filterChipsHTML(); attachFilterHandlers(); }
+}
+
 /* ====== HANDLERS ====== */
+function attachProductHandlers(){
+  document.querySelectorAll('[data-inc]').forEach(b => {
+    b.addEventListener('click', ()=>{
+      const p = prod(b.dataset.inc);
+      setQty(b.dataset.inc, (cart[b.dataset.inc] || 0) + (p ? (p.inc || 1) : 1));
+    });
+  });
+  document.querySelectorAll('[data-dec]').forEach(b => {
+    b.addEventListener('click', ()=>{
+      const p = prod(b.dataset.dec);
+      setQty(b.dataset.dec, (cart[b.dataset.dec] || 0) - (p ? (p.inc || 1) : 1));
+    });
+  });
+  document.querySelectorAll('[data-input]').forEach(inp => {
+    inp.addEventListener('change', ()=>{
+      let v = parseFloat(inp.value);
+      if(!isFinite(v) || v < 0) v = 0;
+      setQty(inp.dataset.input, v);
+      inp.value = cart[inp.dataset.input] || 0;
+    });
+  });
+}
+
 function attach(){
   const gateGo = document.getElementById('gate-go');
   if(gateGo){
@@ -493,6 +631,7 @@ function attach(){
       saveName();
       view = 'home';
       render();
+      fetchCatalogue();
       fetchPrep();
     };
     gateGo.addEventListener('click', commit);
@@ -506,38 +645,29 @@ function attach(){
       const target = el.dataset.go;
       goto(target);
       if(target === 'prep') fetchPrep();
+      if(target === 'order') fetchCatalogue();
     });
   });
 
-  document.querySelectorAll('[data-cat]').forEach(el => {
-    el.addEventListener('click', ()=> goto('category', el.dataset.cat));
-  });
+  attachProductHandlers();
+  attachFilterHandlers();
+
+  const searchInput = document.getElementById('search-input');
+  if(searchInput){
+    searchInput.addEventListener('input', ()=>{ search = searchInput.value; refreshList(); });
+  }
+  const searchClear = document.getElementById('search-clear');
+  if(searchClear){
+    searchClear.addEventListener('click', ()=>{
+      search = '';
+      const si = document.getElementById('search-input');
+      if(si){ si.value = ''; si.focus(); }
+      refreshList();
+    });
+  }
 
   const toReview = document.getElementById('to-review');
   if(toReview) toReview.addEventListener('click', ()=>{ if(cartCount()) goto('review'); });
-
-  document.querySelectorAll('[data-inc]').forEach(b => {
-    b.addEventListener('click', ()=>{
-      const p = prod(b.dataset.inc);
-      cart[b.dataset.inc] = round2((cart[b.dataset.inc] || 0) + (p ? (p.inc || 1) : 1));
-      saveCart(); render();
-    });
-  });
-  document.querySelectorAll('[data-dec]').forEach(b => {
-    b.addEventListener('click', ()=>{
-      const p = prod(b.dataset.dec);
-      cart[b.dataset.dec] = Math.max(0, round2((cart[b.dataset.dec] || 0) - (p ? (p.inc || 1) : 1)));
-      saveCart(); render();
-    });
-  });
-  document.querySelectorAll('[data-input]').forEach(inp => {
-    inp.addEventListener('change', ()=>{
-      let v = parseFloat(inp.value);
-      if(!isFinite(v) || v < 0) v = 0;
-      cart[inp.dataset.input] = round2(v);
-      saveCart(); render();
-    });
-  });
 
   document.querySelectorAll('[data-remove]').forEach(b => {
     b.addEventListener('click', ()=>{
@@ -562,7 +692,7 @@ function attach(){
       prepAdd.disabled = true;
       prepAdd.textContent = 'Adding…';
       const ok = await addPrep(text);
-      if(ok) ta.value = '';
+      if(ok){ const t2 = document.getElementById('prep-text'); if(t2) t2.value = ''; }
       const btn = document.getElementById('prep-add-btn');
       if(btn){ btn.disabled = false; btn.textContent = 'Add to prep list'; }
     });
@@ -580,18 +710,18 @@ function attach(){
 
 /* ====== BOOT ====== */
 loadLocal();
-try{ history.replaceState({view:'home', cat:null}, ''); }catch(e){}
+try{ history.replaceState({view:'home'}, ''); }catch(e){}
 window.addEventListener('popstate', e => {
-  const s = e.state || {};
-  view = s.view || 'home';
-  currentCategory = s.cat || null;
+  view = (e.state && e.state.view) || 'home';
+  search = '';
   render();
 });
 render();
+fetchCatalogue();
 fetchPrep();
 
 document.addEventListener('visibilitychange', ()=>{
-  if(document.visibilityState === 'visible') fetchPrep();
+  if(document.visibilityState === 'visible'){ fetchCatalogue(); fetchPrep(); }
 });
 
 if('serviceWorker' in navigator){
