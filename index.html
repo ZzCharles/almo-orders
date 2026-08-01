@@ -105,6 +105,17 @@ body{
 .prep-body{flex:1;min-width:0;}
 .prep-text{font-size:15px;font-weight:600;line-height:1.35;white-space:pre-wrap;word-break:break-word;}
 .prep-meta{font-size:11px;color:var(--muted);margin-top:3px;}
+.prep-item.is-done .prep-text{text-decoration:line-through;color:var(--muted);}
+.prep-check.on{background:var(--ink);border-color:var(--ink);color:#fff;}
+.pick-row{display:flex;align-items:center;gap:11px;padding:12px 2px;border-bottom:1px solid #F5F3EA;cursor:pointer;}
+.pick-row:last-child{border-bottom:none;}
+.pick-box{flex:0 0 auto;width:24px;height:24px;border:1.5px solid var(--line);background:var(--well);border-radius:7px;font-size:13px;color:transparent;display:flex;align-items:center;justify-content:center;}
+.pick-row.on .pick-box{background:var(--ink);border-color:var(--ink);color:#fff;}
+.pick-row.on .pick-name{font-weight:700;}
+.pick-name{flex:1;font-size:15px;font-weight:600;min-width:0;}
+.status-strip{background:#EDEBDF;color:#5B584C;border-radius:12px;padding:11px 15px;font-size:12.5px;font-weight:700;margin-bottom:14px;}
+.status-strip.ok{background:#EFF3E9;color:#4A6135;}
+.card.tight{padding:4px 16px;}
 .prep-add{display:flex;flex-direction:column;gap:10px;}
 textarea,input[type=text]{width:100%;font-family:inherit;font-size:16px;padding:12px;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--ink);resize:vertical;}
 textarea:focus,input[type=text]:focus{outline:none;border-color:var(--ink);}
@@ -155,6 +166,9 @@ const OTHER = 'Everything else';
 const CART_KEY = 'almo-orders-cart';
 const NAME_KEY = 'almo-orders-name';
 const CAT_KEY  = 'almo-orders-catalogue';
+const PREPCAT_KEY = 'almo-orders-prepcat';
+const PREPSUB_KEY = 'almo-orders-last-prep-sub';
+const ORDSUB_KEY  = 'almo-orders-last-order-sub';
 
 let products = FALLBACK.slice();
 let categories = FALLBACK_CATS.slice();
@@ -164,7 +178,13 @@ let cart = {};
 let username = '';
 let view = 'home';
 let search = '';
-let prep = { items:[], loaded:false, loading:false, failed:false };
+let prepCat = { items:[], sections:[], loaded:false };
+let published = null;
+let prepPick = {};          // what I'm about to ask the chef for
+let prepNote = '';
+let prepSearch = '';
+let lastPrepSub = null;     // { id, at, count } so I can see it landed
+let lastOrderSub = null;
 let sending = false;
 
 function loadLocal(){
@@ -183,6 +203,12 @@ function loadLocal(){
     }
   }catch(e){}
   sortProducts();
+  try{
+    const pc = localStorage.getItem(PREPCAT_KEY);
+    if(pc){ const d = JSON.parse(pc); if(Array.isArray(d.items)){ prepCat.items = d.items; prepCat.sections = d.sections||[]; prepCat.loaded = true; } }
+  }catch(e){}
+  try{ lastPrepSub = JSON.parse(localStorage.getItem(PREPSUB_KEY) || 'null'); }catch(e){}
+  try{ lastOrderSub = JSON.parse(localStorage.getItem(ORDSUB_KEY) || 'null'); }catch(e){}
 }
 function saveCart(){ try{ localStorage.setItem(CART_KEY, JSON.stringify(cart)); }catch(e){} }
 function saveName(){ try{ localStorage.setItem(NAME_KEY, username); }catch(e){} }
@@ -254,52 +280,102 @@ async function fetchCatalogue(){
 }
 
 /* ====== PREP LIST ====== */
-async function fetchPrep(){
-  if(prep.loading) return;
-  prep.loading = true;
+
+
+
+/* ====== PREP ====== */
+async function fetchPrepCat(){
   try{
-    const res = await fetch(API + '/api/prep', {cache:'no-store'});
-    const data = await res.json();
-    prep.items = Array.isArray(data.items) ? data.items : [];
-    prep.failed = false;
-  }catch(e){
-    prep.failed = true;
-  }
-  prep.loading = false;
-  prep.loaded = true;
-  if(view === 'prep' || view === 'home') render();
+    const res = await fetch(API + '/api/prep/catalogue', {cache:'no-store'});
+    const d = await res.json();
+    if(Array.isArray(d.items)){
+      prepCat.items = d.items;
+      prepCat.sections = Array.isArray(d.sections) ? d.sections : [];
+      prepCat.loaded = true;
+      try{ localStorage.setItem(PREPCAT_KEY, JSON.stringify({items:prepCat.items, sections:prepCat.sections})); }catch(e){}
+      Object.keys(prepPick).forEach(id => { if(!prepCat.items.some(i => i.id === id)) delete prepPick[id]; });
+    }
+  }catch(e){}
 }
 
-async function addPrep(text){
+async function fetchPublished(){
   try{
-    const res = await fetch(API + '/api/prep', {
+    const res = await fetch(API + '/api/prep/published', {cache:'no-store'});
+    const d = await res.json();
+    published = (d && Array.isArray(d.lines)) ? d : null;
+  }catch(e){}
+}
+
+/* Did the chef action what I sent? If my submission is gone from the server,
+   it has been published or cleared. */
+async function checkPrepSub(){
+  if(!lastPrepSub) return;
+  try{
+    const res = await fetch(API + '/api/prep/submissions', {cache:'no-store'});
+    const d = await res.json();
+    const still = (d.submissions||[]).some(s => s.id === lastPrepSub.id);
+    if(!still){ lastPrepSub = Object.assign({}, lastPrepSub, {actioned:true}); saveLastPrepSub(); }
+  }catch(e){}
+}
+async function checkOrderSub(){
+  if(!lastOrderSub) return;
+  try{
+    const res = await fetch(API + '/api/orders', {cache:'no-store'});
+    const d = await res.json();
+    const still = (d.orders||[]).some(o => o.id === lastOrderSub.id);
+    if(!still){ lastOrderSub = Object.assign({}, lastOrderSub, {actioned:true}); saveLastOrderSub(); }
+  }catch(e){}
+}
+function saveLastPrepSub(){ try{ localStorage.setItem(PREPSUB_KEY, JSON.stringify(lastPrepSub)); }catch(e){} }
+function saveLastOrderSub(){ try{ localStorage.setItem(ORDSUB_KEY, JSON.stringify(lastOrderSub)); }catch(e){} }
+
+async function refreshPrep(){
+  await fetchPrepCat();
+  await fetchPublished();
+  await checkPrepSub();
+  await checkOrderSub();
+  if(view === 'prep' || view === 'prepAsk' || view === 'home') render();
+}
+
+async function submitPrep(){
+  const items = prepCat.items.filter(i => prepPick[i.id]).map(i => i.name);
+  const note = prepNote.trim();
+  if(items.length === 0 && !note){ showToast('Pick something first'); return; }
+  try{
+    const res = await fetch(API + '/api/prep/submissions', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ text: text, by: username })
+      body: JSON.stringify({ by: username, items: items, note: note })
     });
     if(!res.ok) throw new Error();
-    showToast('Added to the prep list');
-    await fetchPrep();
-    return true;
+    const d = await res.json();
+    lastPrepSub = { id: d.id, at: Date.now(), count: items.length + (note?1:0), actioned:false };
+    saveLastPrepSub();
+    prepPick = {}; prepNote = '';
+    goto('prepSent');
   }catch(e){
-    showToast('No connection. Nothing was added.');
-    return false;
+    showToast('No connection. Nothing was sent.');
   }
 }
 
-async function clearPrep(id){
-  const before = prep.items;
-  prep.items = prep.items.filter(i => i.id !== id);
+async function tickLine(lineId, done){
+  if(!published) return;
+  const line = published.lines.find(l => l.id === lineId);
+  if(!line) return;
+  const before = JSON.parse(JSON.stringify(published.lines));
+  line.done = done; line.doneBy = done ? username : ''; line.doneAt = done ? Date.now() : 0;
   render();
   try{
-    const res = await fetch(API + '/api/prep/clear', {
+    const res = await fetch(API + '/api/prep/published/tick', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ id: id })
+      body: JSON.stringify({ id: lineId, by: username, done: done })
     });
     if(!res.ok) throw new Error();
-  }catch(e){
-    prep.items = before;
+    const d = await res.json();
+    if(Array.isArray(d.lines)) published.lines = d.lines;
     render();
-    showToast('No connection. Line is still on the list.');
+  }catch(e){
+    published.lines = before; render();
+    showToast('No connection. Not saved.');
   }
 }
 
@@ -317,6 +393,11 @@ async function sendOrder(){
       body: JSON.stringify({ items: items, sender: username })
     });
     if(!res.ok) throw new Error();
+    try{
+      const d = await res.json();
+      lastOrderSub = { id: d.id, at: Date.now(), count: Object.keys(items).length, actioned:false };
+      saveLastOrderSub();
+    }catch(e){}
     cart = {};
     saveCart();
     sending = false;
@@ -338,6 +419,8 @@ function render(){
   else if(view === 'review') html += renderReview();
   else if(view === 'sent') html += renderSent();
   else if(view === 'prep') html += renderPrep();
+  else if(view === 'prepAsk') html += renderPrepAsk();
+  else if(view === 'prepSent') html += renderPrepSent();
   else html += renderHome();
   app.innerHTML = html;
   attach();
@@ -356,9 +439,15 @@ function renderGate(){
   `;
 }
 
+function prepTileCount(){
+  const lines = published ? published.lines : [];
+  if(!lines.length) return '';
+  const d = lines.filter(l=>l.done).length;
+  return `<div class="tile-count">${d===lines.length ? 'All done' : (lines.length-d)+' still to do'}</div>`;
+}
+
 function renderHome(){
   const n = cartCount();
-  const open = prep.items.length;
   return `
     <button class="tile" data-go="order">
       <div>
@@ -368,11 +457,12 @@ function renderHome(){
       </div>
       <div class="chev">&rsaquo;</div>
     </button>
+    ${lastOrderSub && !lastOrderSub.actioned ? `<div class="status-strip">Order submitted to chef · ${timeAgo(lastOrderSub.at)} · waiting</div>` : ''}
     <button class="tile" data-go="prep">
       <div>
         <div class="tile-title">Prep list</div>
-        <div class="tile-sub">Shared with everyone in the kitchen</div>
-        ${prep.loaded && !prep.failed ? `<div class="tile-count">${open ? open + ' line' + (open===1?'':'s') + ' to do' : 'Nothing on it yet'}</div>` : ''}
+        <div class="tile-sub">Today's list, shared with the kitchen</div>
+        ${prepTileCount()}
       </div>
       <div class="chev">&rsaquo;</div>
     </button>
@@ -512,37 +602,97 @@ function renderSent(){
 }
 
 function renderPrep(){
+  const lines = published ? published.lines : [];
+  const done = lines.filter(l => l.done).length;
+
   let body;
-  if(!prep.loaded && prep.loading){
-    body = `<div class="empty">Loading the prep list…</div>`;
-  } else if(prep.failed && prep.items.length === 0){
-    body = `<div class="empty">Can't reach the prep list right now.<br>Check your connection and reopen this screen.</div>`;
-  } else if(prep.items.length === 0){
-    body = `<div class="empty">Nothing on the prep list.<br>Add the first line below.</div>`;
+  if(lines.length === 0){
+    body = `<div class="empty">No prep list published yet.<br>The chef will put one up.</div>`;
   } else {
-    body = prep.items.slice().reverse().map(i => `
-      <div class="prep-item">
-        <button class="prep-check" data-prep-done="${esc(i.id)}" aria-label="Mark done">&#10003;</button>
-        <div class="prep-body">
-          <div class="prep-text">${esc(i.text)}</div>
-          <div class="prep-meta">${esc(i.by || 'Kitchen')} · ${timeAgo(i.timestamp || Date.now())}</div>
-        </div>
-      </div>`).join('');
+    let out = '', lastSec = null;
+    lines.forEach(l => {
+      const sec = l.section || 'Other';
+      if(sec !== lastSec){ lastSec = sec; out += `<div class="sec-head">${esc(sec)}</div>`; }
+      out += `
+        <div class="prep-item ${l.done?'is-done':''}">
+          <button class="prep-check ${l.done?'on':''}" data-tick="${esc(l.id)}" data-done="${l.done?'1':'0'}" aria-label="${l.done?'Mark not done':'Mark done'}">&#10003;</button>
+          <div class="prep-body">
+            <div class="prep-text">${esc(l.text)}</div>
+            ${l.done ? `<div class="prep-meta">Completed by ${esc(l.doneBy||'someone')}${l.doneAt?' · '+timeAgo(l.doneAt):''}</div>` : ''}
+          </div>
+        </div>`;
+    });
+    body = out;
+  }
+
+  let status = '';
+  if(lastPrepSub){
+    status = lastPrepSub.actioned
+      ? `<div class="status-strip ok">Your request was actioned by the chef.</div>`
+      : `<div class="status-strip">Submitted to chef · ${timeAgo(lastPrepSub.at)} · waiting</div>`;
   }
 
   return `
     <div class="crumb"><button data-go="home">&larr; Home</button></div>
-    <h2 class="screen-title">Prep list</h2>
-    <p class="screen-sub">Everyone sees the same list. Tick a line off when it's done.</p>
-    <div class="card">${body}</div>
-    <div class="section-label">Add a line</div>
-    <div class="card">
-      <div class="prep-add">
-        <textarea id="prep-text" placeholder="e.g. 4L napoli, pickle 2kg onions"></textarea>
-        <button class="btn" id="prep-add-btn">Add to prep list</button>
-      </div>
+    <h2 class="screen-title">Today's Prep List</h2>
+    <p class="screen-sub">${lines.length ? done+' of '+lines.length+' done · published '+timeAgo(published.publishedAt) : 'Nothing up yet.'}</p>
+    ${status}
+    <div class="card tight">${body}</div>
+    <div class="add-row"><button class="btn ghost" data-go="prepAsk">Ask for prep</button></div>
+  `;
+}
+
+function renderPrepAsk(){
+  const q = prepSearch.trim().toLowerCase();
+  const list = q ? prepCat.items.filter(i => i.name.toLowerCase().indexOf(q) > -1) : prepCat.items;
+  const n = Object.keys(prepPick).filter(k => prepPick[k]).length;
+
+  let rows;
+  if(prepCat.items.length === 0){
+    rows = `<div class="empty">Nothing to pick from yet.<br>You can still write a note below.</div>`;
+  } else if(list.length === 0){
+    rows = `<div class="empty">Nothing matches "${esc(prepSearch.trim())}".<br>Write it in the note instead.</div>`;
+  } else {
+    let out = '', lastSec = null;
+    list.forEach(i => {
+      const sec = i.section || 'Other';
+      if(!q && sec !== lastSec){ lastSec = sec; out += `<div class="sec-head">${esc(sec)}</div>`; }
+      out += `
+        <div class="pick-row ${prepPick[i.id]?'on':''}" data-pick="${esc(i.id)}">
+          <span class="pick-box">&#10003;</span>
+          <span class="pick-name">${esc(i.name)}</span>
+        </div>`;
+    });
+    rows = out;
+  }
+
+  return `
+    <div class="crumb"><button data-go="prep">&larr; Prep list</button></div>
+    <h2 class="screen-title">Ask for prep</h2>
+    <p class="screen-sub">Pick what you think needs doing. The chef decides what goes on the list.</p>
+    <div class="search-wrap ${prepSearch?'filled':''}">
+      <input type="text" id="prep-search" placeholder="Search prep items" value="${esc(prepSearch)}" autocomplete="off">
+      <button class="search-clear" id="prep-search-clear" aria-label="Clear">&times;</button>
     </div>
-    ${prep.failed ? `<div class="offline-note">Offline. This list may be out of date.</div>` : ''}
+    <div class="card tight">${rows}</div>
+    <div class="section-label">Anything else</div>
+    <div class="card">
+      <textarea id="prep-note" placeholder="Something not on the list?">${esc(prepNote)}</textarea>
+    </div>
+    <div class="sticky-foot">
+      <button class="btn" id="prep-submit">${n ? 'Send '+n+' item'+(n===1?'':'s')+' to chef' : 'Send to chef'}</button>
+    </div>
+  `;
+}
+
+function renderPrepSent(){
+  return `
+    <div class="done">
+      <div class="tick">&#10003;</div>
+      <h2>Sent to the chef</h2>
+      <p>Thanks ${esc(username)}. It'll show up on the prep list once the chef publishes.</p>
+      <button class="btn ghost" data-go="prep">Back to prep list</button>
+    </div>
   `;
 }
 
@@ -632,7 +782,7 @@ function attach(){
       view = 'home';
       render();
       fetchCatalogue();
-      fetchPrep();
+      refreshPrep();
     };
     gateGo.addEventListener('click', commit);
     input.addEventListener('keydown', e => { if(e.key === 'Enter') commit(); });
@@ -640,11 +790,65 @@ function attach(){
     return;
   }
 
+
+  document.querySelectorAll('[data-tick]').forEach(b => {
+    b.addEventListener('click', ()=> tickLine(b.dataset.tick, b.dataset.done !== '1'));
+  });
+
+  document.querySelectorAll('[data-pick]').forEach(row => {
+    row.addEventListener('click', ()=>{
+      const note = document.getElementById('prep-note');
+      if(note) prepNote = note.value;
+      const id = row.dataset.pick;
+      if(prepPick[id]) delete prepPick[id]; else prepPick[id] = true;
+      render();
+    });
+  });
+
+  const pSearch = document.getElementById('prep-search');
+  if(pSearch){
+    pSearch.addEventListener('input', ()=>{
+      const note = document.getElementById('prep-note');
+      if(note) prepNote = note.value;
+      prepSearch = pSearch.value;
+      const pos = pSearch.selectionStart;
+      render();
+      const again = document.getElementById('prep-search');
+      if(again){ again.focus(); try{ again.setSelectionRange(pos,pos); }catch(e){} }
+    });
+  }
+  const pClear = document.getElementById('prep-search-clear');
+  if(pClear){
+    pClear.addEventListener('click', ()=>{
+      const note = document.getElementById('prep-note');
+      if(note) prepNote = note.value;
+      prepSearch = '';
+      render();
+    });
+  }
+
+  const pNote = document.getElementById('prep-note');
+  if(pNote) pNote.addEventListener('change', ()=>{ prepNote = pNote.value; });
+
+  const pSubmit = document.getElementById('prep-submit');
+  if(pSubmit){
+    pSubmit.addEventListener('click', ()=>{
+      const note = document.getElementById('prep-note');
+      if(note) prepNote = note.value;
+      pSubmit.disabled = true;
+      pSubmit.textContent = 'Sending…';
+      submitPrep().then(()=>{
+        const b = document.getElementById('prep-submit');
+        if(b){ b.disabled = false; b.textContent = 'Send to chef'; }
+      });
+    });
+  }
+
   document.querySelectorAll('[data-go]').forEach(el => {
     el.addEventListener('click', ()=>{
       const target = el.dataset.go;
       goto(target);
-      if(target === 'prep') fetchPrep();
+      if(target === 'prep' || target === 'prepAsk') refreshPrep();
       if(target === 'order') fetchCatalogue();
     });
   });
@@ -679,24 +883,7 @@ function attach(){
   const sendBtn = document.getElementById('send-btn');
   if(sendBtn) sendBtn.addEventListener('click', sendOrder);
 
-  document.querySelectorAll('[data-prep-done]').forEach(b => {
-    b.addEventListener('click', ()=> clearPrep(b.dataset.prepDone));
-  });
 
-  const prepAdd = document.getElementById('prep-add-btn');
-  if(prepAdd){
-    prepAdd.addEventListener('click', async ()=>{
-      const ta = document.getElementById('prep-text');
-      const text = (ta.value || '').trim();
-      if(!text){ showToast('Type what needs prepping'); ta.focus(); return; }
-      prepAdd.disabled = true;
-      prepAdd.textContent = 'Adding…';
-      const ok = await addPrep(text);
-      if(ok){ const t2 = document.getElementById('prep-text'); if(t2) t2.value = ''; }
-      const btn = document.getElementById('prep-add-btn');
-      if(btn){ btn.disabled = false; btn.textContent = 'Add to prep list'; }
-    });
-  }
 
   const changeName = document.querySelector('[data-change-name]');
   if(changeName){
@@ -718,10 +905,10 @@ window.addEventListener('popstate', e => {
 });
 render();
 fetchCatalogue();
-fetchPrep();
+refreshPrep();
 
 document.addEventListener('visibilitychange', ()=>{
-  if(document.visibilityState === 'visible'){ fetchCatalogue(); fetchPrep(); }
+  if(document.visibilityState === 'visible'){ fetchCatalogue(); refreshPrep(); }
 });
 
 if('serviceWorker' in navigator){
