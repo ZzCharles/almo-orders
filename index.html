@@ -105,8 +105,18 @@ body{
 .prep-body{flex:1;min-width:0;}
 .prep-text{font-size:15px;font-weight:600;line-height:1.35;white-space:pre-wrap;word-break:break-word;}
 .prep-meta{font-size:11px;color:var(--muted);margin-top:3px;}
-.prep-item.is-done .prep-text{text-decoration:line-through;color:var(--muted);}
-.prep-check.on{background:var(--ink);border-color:var(--ink);color:#fff;}
+.prep-item.is-done .prep-text{color:var(--muted);}
+.prep-text{position:relative;display:inline-block;}
+.prep-item.is-done .prep-text::after{content:'';position:absolute;left:0;top:50%;height:1.5px;background:currentColor;width:100%;
+  animation:strike .22s cubic-bezier(.2,.7,.3,1) both;}
+@keyframes strike{from{width:0;}to{width:100%;}}
+.prep-check{width:44px!important;height:44px!important;margin:-9px 0 -9px -9px!important;border:none!important;background:none!important;
+  position:relative;display:flex;align-items:center;justify-content:center;}
+.prep-check::before{content:'';position:absolute;width:26px;height:26px;border:1.5px solid var(--line);background:var(--well);border-radius:8px;
+  transition:background .18s ease,border-color .18s ease;}
+.prep-check.on{color:#fff!important;}
+.prep-check.on::before{background:var(--ink);border-color:var(--ink);}
+.prep-check:active::before{background:var(--ink);border-color:var(--ink);}
 .pick-row{display:flex;align-items:center;gap:11px;padding:12px 2px;border-bottom:1px solid #F5F3EA;cursor:pointer;}
 .pick-row:last-child{border-bottom:none;}
 .pick-box{flex:0 0 auto;width:24px;height:24px;border:1.5px solid var(--line);background:var(--well);border-radius:7px;font-size:13px;color:transparent;display:flex;align-items:center;justify-content:center;}
@@ -141,6 +151,26 @@ textarea{min-height:78px;}
 .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:11px 20px;border-radius:999px;font-size:12px;font-weight:600;z-index:60;opacity:0;pointer-events:none;transition:opacity .2s ease;max-width:88%;text-align:center;}
 .toast.show{opacity:1;}
 @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important;}}
+
+/* ===== Motion =====
+   View Transitions handles screen changes on browsers that have it; anywhere
+   else the screen just changes instantly, which is the right fallback. */
+@media (prefers-reduced-motion: no-preference){
+  ::view-transition-old(root){animation:vt-out .16s ease both;}
+  ::view-transition-new(root){animation:vt-in .2s cubic-bezier(.2,.7,.3,1) both;}
+  @keyframes vt-out{to{opacity:0;transform:translateY(-4px);}}
+  @keyframes vt-in{from{opacity:0;transform:translateY(6px);}}
+}
+.btn,.tile,.tab-card,.sub-card,.icon-btn,.filter-chip,.chip,.pick-row,.recipe-row,.prep-check{
+  transition:background .16s ease,color .16s ease,border-color .16s ease,transform .12s ease,opacity .16s ease;}
+.btn:active,.tile:active,.tab-card:active,.recipe-row:active{transform:scale(.985);}
+.icon-btn:active,.chip:active{transform:scale(.92);}
+.pick-row .pick-box{transition:background .16s ease,border-color .16s ease,color .16s ease;}
+.toast{transition:opacity .2s ease,transform .2s cubic-bezier(.2,.7,.3,1);transform:translateX(-50%) translateY(6px);}
+.toast.show{transform:translateX(-50%) translateY(0);}
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation-duration:.001ms!important;transition-duration:.001ms!important;}
+}
 </style>
 </head>
 <body>
@@ -242,11 +272,23 @@ function timeAgo(ts){
   return days + (days === 1 ? ' day ago' : ' days ago');
 }
 
+/* Wraps a render in a View Transition where supported, so screens cross-fade
+   instead of snapping. Falls through untouched everywhere else. */
+function animate(fn){
+  try{
+    if(document.startViewTransition && !window.matchMedia('(prefers-reduced-motion: reduce)').matches){
+      document.startViewTransition(fn);
+      return;
+    }
+  }catch(e){}
+  fn();
+}
+
 function goto(v){
   view = v;
   if(v !== 'order') search = '';
   try{ history.pushState({view:v}, ''); }catch(e){}
-  render();
+  animate(render);
   window.scrollTo(0,0);
 }
 
@@ -302,7 +344,8 @@ async function fetchPublished(){
   try{
     const res = await fetch(API + '/api/prep/published', {cache:'no-store'});
     const d = await res.json();
-    published = (d && Array.isArray(d.lines)) ? d : null;
+    if(d && Array.isArray(d.lines)){ d.lines = applyRecentTicks(d.lines); published = d; }
+    else published = null;
   }catch(e){}
 }
 
@@ -357,12 +400,31 @@ async function submitPrep(){
   }
 }
 
+/* See the note in The Pass: a freshly written tick may not show up in the next
+   read, so recent local ticks win for a short window. */
+const recentTicks = {};
+/* Long enough to cover KV catching up, short enough that if someone else
+   changes the same line it wins almost straight away. */
+const TICK_GRACE = 12000;
+function rememberTick(id, done, by){ recentTicks[id] = { done: done, by: by, at: Date.now() }; }
+function applyRecentTicks(lines){
+  const cutoff = Date.now() - TICK_GRACE;
+  return (lines||[]).map(l => {
+    const r = recentTicks[l.id];
+    if(!r) return l;
+    if(r.at < cutoff){ delete recentTicks[l.id]; return l; }
+    if(l.done === r.done){ delete recentTicks[l.id]; return l; }
+    return Object.assign({}, l, { done: r.done, doneBy: r.done ? r.by : '', doneAt: r.done ? r.at : 0 });
+  });
+}
+
 async function tickLine(lineId, done){
   if(!published) return;
   const line = published.lines.find(l => l.id === lineId);
   if(!line) return;
   const before = JSON.parse(JSON.stringify(published.lines));
   line.done = done; line.doneBy = done ? username : ''; line.doneAt = done ? Date.now() : 0;
+  rememberTick(lineId, done, username);
   render();
   try{
     const res = await fetch(API + '/api/prep/published/tick', {
@@ -370,9 +432,7 @@ async function tickLine(lineId, done){
       body: JSON.stringify({ id: lineId, by: username, done: done })
     });
     if(!res.ok) throw new Error();
-    const d = await res.json();
-    if(Array.isArray(d.lines)) published.lines = d.lines;
-    render();
+    await res.json().catch(()=>({}));
   }catch(e){
     published.lines = before; render();
     showToast('No connection. Not saved.');
