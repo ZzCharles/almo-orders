@@ -32,6 +32,11 @@ body{
 .brand{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line);padding-bottom:12px;margin-bottom:16px;}
 .brand h1{font-size:20px;font-weight:800;letter-spacing:-0.3px;margin:0;}
 .brand .tag{font-size:11px;color:var(--muted);}
+.brand-right{display:flex;align-items:center;gap:12px;}
+.home-btn{background:none;border:none;padding:0;width:30px;height:30px;color:var(--ink);cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:transform .18s cubic-bezier(.25,.8,.35,1),color .18s ease;}
+.home-btn svg{width:21px;height:21px;}
+.home-btn:active{transform:scale(.9);color:var(--stamp);}
 
 .crumb{font-size:12px;color:var(--muted);margin-bottom:14px;}
 .crumb button{background:none;border:none;font-family:inherit;font-size:12px;font-weight:600;color:var(--ink-soft);padding:0;cursor:pointer;}
@@ -156,15 +161,17 @@ textarea{min-height:78px;}
    View Transitions handles screen changes on browsers that have it; anywhere
    else the screen just changes instantly, which is the right fallback. */
 @media (prefers-reduced-motion: no-preference){
-  ::view-transition-old(root){animation:vt-out .16s ease both;}
-  ::view-transition-new(root){animation:vt-in .2s cubic-bezier(.2,.7,.3,1) both;}
-  @keyframes vt-out{to{opacity:0;transform:translateY(-4px);}}
-  @keyframes vt-in{from{opacity:0;transform:translateY(6px);}}
+  ::view-transition-old(root),::view-transition-new(root){
+    animation-duration:.26s;animation-timing-function:cubic-bezier(.33,0,.2,1);mix-blend-mode:normal;}
+  ::view-transition-old(root){animation-name:vt-out;}
+  ::view-transition-new(root){animation-name:vt-in;}
+  @keyframes vt-out{to{opacity:0;}}
+  @keyframes vt-in{from{opacity:0;}}
 }
-.btn,.tile,.tab-card,.sub-card,.icon-btn,.filter-chip,.chip,.pick-row,.recipe-row,.prep-check{
-  transition:background .16s ease,color .16s ease,border-color .16s ease,transform .12s ease,opacity .16s ease;}
-.btn:active,.tile:active,.tab-card:active,.recipe-row:active{transform:scale(.985);}
-.icon-btn:active,.chip:active{transform:scale(.92);}
+.btn,.tile,.icon-btn,.filter-chip,.chip,.pick-row,.prep-check{
+  transition:background .18s ease,color .18s ease,border-color .18s ease,transform .18s cubic-bezier(.25,.8,.35,1),opacity .18s ease;}
+.btn:active,.tile:active{transform:scale(.99);}
+.icon-btn:active,.chip:active{transform:scale(.94);}
 .pick-row .pick-box{transition:background .16s ease,border-color .16s ease,color .16s ease;}
 .toast{transition:opacity .2s ease,transform .2s cubic-bezier(.2,.7,.3,1);transform:translateX(-50%) translateY(6px);}
 .toast.show{transform:translateX(-50%) translateY(0);}
@@ -474,7 +481,9 @@ function render(){
   const app = document.getElementById('app');
   if(!username){ app.innerHTML = renderGate(); attach(); return; }
 
-  let html = `<div class="brand"><h1>Almo Orders</h1><span class="tag">${esc(username)}</span></div>`;
+  const homeBtn = view === 'home' ? '' :
+    `<button class="home-btn" data-go="home" aria-label="Home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg></button>`;
+  let html = `<div class="brand"><h1>Almo Orders</h1><div class="brand-right">${homeBtn}<span class="tag">${esc(username)}</span></div></div>`;
   if(view === 'order') html += renderOrder();
   else if(view === 'review') html += renderReview();
   else if(view === 'sent') html += renderSent();
@@ -511,7 +520,7 @@ function renderHome(){
   return `
     <button class="tile" data-go="order">
       <div>
-        <div class="tile-title">Request an order</div>
+        <div class="tile-title">Add orders</div>
         <div class="tile-sub">${products.length} product${products.length===1?'':'s'} across ${sectionsInUse().length} section${sectionsInUse().length===1?'':'s'}</div>
         ${n ? `<div class="tile-count">${n} item${n===1?'':'s'} not sent yet</div>` : ''}
       </div>
@@ -698,7 +707,7 @@ function renderPrep(){
     <p class="screen-sub">${lines.length ? done+' of '+lines.length+' done · published '+timeAgo(published.publishedAt) : 'Nothing up yet.'}</p>
     ${status}
     <div class="card tight">${body}</div>
-    <div class="add-row"><button class="btn ghost" data-go="prepAsk">Ask for prep</button></div>
+    <div class="add-row"><button class="btn ghost" data-go="prepAsk">Add prep</button></div>
   `;
 }
 
@@ -728,7 +737,7 @@ function renderPrepAsk(){
 
   return `
     <div class="crumb"><button data-go="prep">&larr; Prep list</button></div>
-    <h2 class="screen-title">Ask for prep</h2>
+    <h2 class="screen-title">Add prep</h2>
     <p class="screen-sub">Pick what you think needs doing. The chef decides what goes on the list.</p>
     <div class="search-wrap ${prepSearch?'filled':''}">
       <input type="text" id="prep-search" placeholder="Search prep items" value="${esc(prepSearch)}" autocomplete="off">
@@ -740,7 +749,7 @@ function renderPrepAsk(){
       <textarea id="prep-note" placeholder="Something not on the list?">${esc(prepNote)}</textarea>
     </div>
     <div class="sticky-foot">
-      <button class="btn" id="prep-submit">${n ? 'Send '+n+' item'+(n===1?'':'s')+' to chef' : 'Send to chef'}</button>
+      <button class="btn" id="prep-submit">${n ? 'Add '+n+' item'+(n===1?'':'s')+' to the list' : 'Add to the list'}</button>
     </div>
   `;
 }
@@ -749,8 +758,8 @@ function renderPrepSent(){
   return `
     <div class="done">
       <div class="tick">&#10003;</div>
-      <h2>Sent to the chef</h2>
-      <p>Thanks ${esc(username)}. It'll show up on the prep list once the chef publishes.</p>
+      <h2>Added</h2>
+      <p>Thanks ${esc(username)}. It'll appear on the prep list once the chef publishes it.</p>
       <button class="btn ghost" data-go="prep">Back to prep list</button>
     </div>
   `;
@@ -899,7 +908,7 @@ function attach(){
       pSubmit.textContent = 'Sending…';
       submitPrep().then(()=>{
         const b = document.getElementById('prep-submit');
-        if(b){ b.disabled = false; b.textContent = 'Send to chef'; }
+        if(b){ b.disabled = false; b.textContent = 'Add to the list'; }
       });
     });
   }
