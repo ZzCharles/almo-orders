@@ -142,6 +142,50 @@ textarea{min-height:78px;}
 .gate p{font-size:14px;color:var(--muted);margin:0 0 22px;line-height:1.45;}
 .gate label{display:block;font-size:11px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);margin-bottom:7px;}
 .gate input{margin-bottom:16px;}
+.code-input{font-size:25px!important;font-weight:800;letter-spacing:4px;text-align:center;padding:15px 12px!important;text-transform:uppercase;}
+.auth-error{font-size:13px;color:var(--stamp);font-weight:600;margin:-6px 0 14px;}
+.gate-foot{font-size:11.5px;color:var(--muted);margin-top:16px;line-height:1.5;}
+.recipe-row{display:flex;align-items:center;gap:4px;padding:4px 2px;border-bottom:1px solid #F5F3EA;}
+.recipe-row:last-child{border-bottom:none;}
+.recipe-open{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:2px;background:none;border:none;
+  font-family:inherit;text-align:left;cursor:pointer;color:inherit;padding:11px 4px;}
+.recipe-open:active .recipe-row-name{color:var(--stamp);}
+.recipe-row-name{font-size:15px;font-weight:600;}
+.recipe-row-sub{font-size:11.5px;color:var(--muted);}
+.star{flex:0 0 auto;width:38px;height:38px;border:none;background:none;color:var(--line);cursor:pointer;padding:0;
+  display:flex;align-items:center;justify-content:center;transition:color .18s ease,transform .18s cubic-bezier(.25,.8,.35,1);}
+.star svg{width:19px;height:19px;}
+.star.on{color:var(--mustard);}
+.star:active{transform:scale(.85);}
+.star.big svg{width:24px;height:24px;}
+.recipe-head{margin-bottom:14px;}
+.recipe-top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:5px;}
+.recipe-eyebrow{font-size:10.5px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);}
+.recipe-title{font-size:29px;font-weight:800;letter-spacing:-0.8px;margin:0;line-height:1.12;}
+.pill-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:11px;}
+.pill{font-size:10.5px;font-weight:800;letter-spacing:0.7px;text-transform:uppercase;border-radius:999px;padding:4px 10px;background:#EDEBDF;color:var(--ink-soft);}
+.pill.warn{background:#F6EBDC;color:#8A5A16;}
+.sub-note{font-size:12.5px;color:var(--ink-soft);margin-top:11px;line-height:1.5;}
+.sub-link,.ri-link{font-family:inherit;font-weight:700;color:var(--stamp);background:none;border:none;padding:0;cursor:pointer;
+  text-decoration:underline;text-underline-offset:2px;}
+.sub-link{font-size:12.5px;}
+.ri-link{font-size:15px;display:inline-flex;align-items:center;gap:3px;text-align:left;}
+.ri-arrow{text-decoration:none;font-size:16px;}
+.ri-table{width:100%;border-collapse:collapse;}
+.ri-table td{padding:12px 0;border-bottom:1px solid #F5F3EA;font-size:15px;vertical-align:baseline;}
+.ri-table tr:last-child td{border-bottom:none;}
+.ri-amt{font-weight:800;white-space:nowrap;width:1%;padding-right:16px!important;font-variant-numeric:tabular-nums;font-size:16px;}
+.ri-unit{color:var(--muted);font-weight:600;font-size:12px;margin-left:3px;}
+.ri-item{font-weight:600;line-height:1.35;}
+.rm-list{list-style:none;margin:0;padding:0;}
+.rm-list li{display:flex;gap:11px;padding:11px 0;border-bottom:1px solid #F5F3EA;}
+.rm-list li:last-child{border-bottom:none;}
+.rm-n{flex:0 0 auto;width:21px;height:21px;border-radius:50%;border:1.5px solid var(--line);background:transparent;color:var(--muted);
+  font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;margin-top:2px;}
+.rm-t{flex:1;font-size:15px;line-height:1.5;}
+.rn-text{font-size:14px;line-height:1.5;white-space:pre-wrap;}
+.sec-head{font-size:11px;font-weight:800;letter-spacing:1.4px;text-transform:uppercase;color:var(--muted);padding:16px 2px 7px;border-bottom:1px solid var(--line);}
+.sec-head:first-child{padding-top:10px;}
 
 .done{padding-top:56px;text-align:center;}
 .done .tick{width:74px;height:74px;border-radius:50%;background:var(--ink);color:#fff;font-size:34px;display:flex;align-items:center;justify-content:center;margin:0 auto 22px;}
@@ -206,6 +250,9 @@ const CAT_KEY  = 'almo-orders-catalogue';
 const PREPCAT_KEY = 'almo-orders-prepcat';
 const PREPSUB_KEY = 'almo-orders-last-prep-sub';
 const ORDSUB_KEY  = 'almo-orders-last-order-sub';
+const TOKEN_KEY   = 'almo-orders-token';
+const FAVS_KEY    = 'almo-orders-favs';
+const SRECIPES_KEY = 'almo-orders-staff-recipes';
 
 let products = FALLBACK.slice();
 let categories = FALLBACK_CATS.slice();
@@ -222,6 +269,17 @@ let prepNote = '';
 let prepSearch = '';
 let lastPrepSub = null;     // { id, at, count } so I can see it landed
 let lastOrderSub = null;
+let token = '';
+let staffId = '';
+let signingIn = false;
+let authError = '';
+let recipes = [];
+let recipeSections = [];
+let recipesLoaded = false;
+let favs = {};
+let recipeSearch = '';
+let recipeFilter = null;
+let currentRecipe = null;
 let sending = false;
 
 function loadLocal(){
@@ -243,6 +301,12 @@ function loadLocal(){
   try{
     const pc = localStorage.getItem(PREPCAT_KEY);
     if(pc){ const d = JSON.parse(pc); if(Array.isArray(d.items)){ prepCat.items = d.items; prepCat.sections = d.sections||[]; prepCat.loaded = true; } }
+  }catch(e){}
+  try{ token = localStorage.getItem(TOKEN_KEY) || ''; }catch(e){ token = ''; }
+  try{ favs = JSON.parse(localStorage.getItem(FAVS_KEY) || '{}'); }catch(e){ favs = {}; }
+  try{
+    const sr = localStorage.getItem(SRECIPES_KEY);
+    if(sr){ const d = JSON.parse(sr); if(Array.isArray(d.recipes)){ recipes = d.recipes; recipeSections = d.sections||[]; recipesLoaded = true; } }
   }catch(e){}
   try{ lastPrepSub = JSON.parse(localStorage.getItem(PREPSUB_KEY) || 'null'); }catch(e){}
   try{ lastOrderSub = JSON.parse(localStorage.getItem(ORDSUB_KEY) || 'null'); }catch(e){}
@@ -294,6 +358,7 @@ function animate(fn){
 function goto(v){
   view = v;
   if(v !== 'order') search = '';
+  if(v !== 'recipes' && v !== 'recipe') recipeSearch = '';
   try{ history.pushState({view:v}, ''); }catch(e){}
   animate(render);
   window.scrollTo(0,0);
@@ -302,7 +367,8 @@ function goto(v){
 /* ====== CATALOGUE ====== */
 async function fetchCatalogue(){
   try{
-    const res = await fetch(API + '/api/catalogue', {cache:'no-store'});
+    const res = await fetch(API + '/api/catalogue', {cache:'no-store', headers: authHeaders()});
+    if(res.status === 401){ signedOut(); return; }
     const data = await res.json();
     if(!Array.isArray(data.products) || data.products.length === 0){
       catalogue.stale = true;
@@ -332,10 +398,141 @@ async function fetchCatalogue(){
 
 
 
+/* ====== AUTH ====== */
+function saveToken(){ try{ token ? localStorage.setItem(TOKEN_KEY, token) : localStorage.removeItem(TOKEN_KEY); }catch(e){} }
+function authHeaders(extra){
+  const h = Object.assign({}, extra || {});
+  if(token) h['X-Staff-Token'] = token;
+  return h;
+}
+function signedOut(){
+  token = ''; staffId = ''; saveToken();
+  recipes = []; recipesLoaded = false;
+  try{ localStorage.removeItem(SRECIPES_KEY); }catch(e){}
+  view = 'home';
+  render();
+}
+
+async function redeemCode(code){
+  signingIn = true; authError = ''; render();
+  try{
+    const res = await fetch(API + '/api/auth/redeem', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ code: code, device: deviceLabel() })
+    });
+    const d = await res.json().catch(()=>({}));
+    if(!res.ok){
+      /* A code written seconds ago may not have reached this phone's edge yet,
+         so a miss right after the chef made it is worth one retry. */
+      if(res.status === 404){
+        await new Promise(r=>setTimeout(r, 2500));
+        const again = await fetch(API + '/api/auth/redeem', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ code: code, device: deviceLabel() })
+        });
+        const d2 = await again.json().catch(()=>({}));
+        if(again.ok){ finishSignIn(d2); return; }
+      }
+      authError = d.error || 'That code did not work';
+      signingIn = false; render();
+      return;
+    }
+    finishSignIn(d);
+  }catch(e){
+    authError = 'No connection. Try again in a moment.';
+    signingIn = false; render();
+  }
+}
+
+function finishSignIn(d){
+  token = d.token || '';
+  staffId = d.staffId || '';
+  username = d.name || username;
+  saveToken(); saveName();
+  signingIn = false; authError = '';
+  view = 'home';
+  render();
+  fetchCatalogue(); refreshPrep(); fetchRecipes();
+}
+
+function deviceLabel(){
+  const ua = navigator.userAgent || '';
+  if(/iPhone/i.test(ua)) return 'iPhone';
+  if(/iPad/i.test(ua)) return 'iPad';
+  const m = ua.match(/\(Linux; Android [^;]+; ([^)senger;]+)\)/);
+  if(m) return m[1].trim();
+  if(/Android/i.test(ua)) return 'Android phone';
+  return 'Phone';
+}
+
+/* ====== RECIPES ====== */
+function saveFavs(){ try{ localStorage.setItem(FAVS_KEY, JSON.stringify(favs)); }catch(e){} }
+
+async function fetchRecipes(){
+  if(!token) return;
+  try{
+    const res = await fetch(API + '/api/staff/recipes', {cache:'no-store', headers: authHeaders()});
+    if(res.status === 401){ signedOut(); showToast('Your access was removed'); return; }
+    if(!res.ok) throw new Error();
+    const d = await res.json();
+    if(Array.isArray(d.recipes)){
+      recipes = d.recipes;
+      recipeSections = Array.isArray(d.sections) ? d.sections : [];
+      recipesLoaded = true;
+      try{ localStorage.setItem(SRECIPES_KEY, JSON.stringify({recipes:recipes, sections:recipeSections})); }catch(e){}
+      Object.keys(favs).forEach(id => { if(!recipes.some(r=>r.id===id)) delete favs[id]; });
+      saveFavs();
+      if(view === 'recipes' || view === 'home') render();
+    }
+  }catch(e){}
+}
+
+function findRecipe(id){ return recipes.find(r => r.id === id); }
+function recipeByName(name){
+  const n = String(name||'').trim().toLowerCase();
+  return n ? recipes.find(r => String(r.name).trim().toLowerCase() === n) || null : null;
+}
+function subRecipesOf(r){
+  const out = [];
+  (r.ingredients||[]).forEach(i => {
+    const hit = recipeByName(i.item);
+    if(hit && hit.id !== r.id && !out.some(x=>x.id===hit.id)) out.push(hit);
+  });
+  return out;
+}
+function usedByRecipes(r){
+  return recipes.filter(x => x.id !== r.id &&
+    (x.ingredients||[]).some(i => String(i.item).trim().toLowerCase() === String(r.name).trim().toLowerCase()));
+}
+function fmtAmount(qty, unit){
+  const q = Number(qty);
+  if(!isFinite(q)) return { amount:'', unit:'' };
+  if(unit === 'g' && q >= 1000) return { amount:String(Math.round((q/1000)*1000)/1000), unit:'kg' };
+  return { amount:String(Math.round(q*1000)/1000), unit: unit || '' };
+}
+function recipeSectionsInUse(){
+  const used = [];
+  recipes.forEach(r => { const s = r.section || 'Other'; if(used.indexOf(s)<0) used.push(s); });
+  const ordered = recipeSections.filter(s => used.indexOf(s) > -1);
+  used.forEach(s => { if(ordered.indexOf(s)<0) ordered.push(s); });
+  return ordered;
+}
+function sortedRecipes(){
+  const order = recipeSectionsInUse();
+  return recipes.slice().sort((a,b)=>{
+    const fa = favs[a.id]?0:1, fb = favs[b.id]?0:1;
+    if(fa !== fb) return fa - fb;
+    const ia = order.indexOf(a.section||'Other'), ib = order.indexOf(b.section||'Other');
+    if(ia !== ib) return (ia<0?999:ia) - (ib<0?999:ib);
+    return String(a.name).localeCompare(String(b.name),'en',{sensitivity:'base'});
+  });
+}
+
 /* ====== PREP ====== */
 async function fetchPrepCat(){
   try{
-    const res = await fetch(API + '/api/prep/catalogue', {cache:'no-store'});
+    const res = await fetch(API + '/api/prep/catalogue', {cache:'no-store', headers: authHeaders()});
+    if(res.status === 401){ signedOut(); return; }
     const d = await res.json();
     if(Array.isArray(d.items)){
       prepCat.items = d.items;
@@ -349,7 +546,8 @@ async function fetchPrepCat(){
 
 async function fetchPublished(){
   try{
-    const res = await fetch(API + '/api/prep/published', {cache:'no-store'});
+    const res = await fetch(API + '/api/prep/published', {cache:'no-store', headers: authHeaders()});
+    if(res.status === 401){ signedOut(); return; }
     const d = await res.json();
     if(d && Array.isArray(d.lines)){ d.lines = applyRecentTicks(d.lines); published = d; }
     else published = null;
@@ -361,7 +559,7 @@ async function fetchPublished(){
 async function checkPrepSub(){
   if(!lastPrepSub) return;
   try{
-    const res = await fetch(API + '/api/prep/submissions', {cache:'no-store'});
+    const res = await fetch(API + '/api/prep/submissions', {cache:'no-store', headers: authHeaders()});
     const d = await res.json();
     const still = (d.submissions||[]).some(s => s.id === lastPrepSub.id);
     if(!still){ lastPrepSub = Object.assign({}, lastPrepSub, {actioned:true}); saveLastPrepSub(); }
@@ -370,7 +568,7 @@ async function checkPrepSub(){
 async function checkOrderSub(){
   if(!lastOrderSub) return;
   try{
-    const res = await fetch(API + '/api/orders', {cache:'no-store'});
+    const res = await fetch(API + '/api/orders', {cache:'no-store', headers: authHeaders()});
     const d = await res.json();
     const still = (d.orders||[]).some(o => o.id === lastOrderSub.id);
     if(!still){ lastOrderSub = Object.assign({}, lastOrderSub, {actioned:true}); saveLastOrderSub(); }
@@ -393,7 +591,7 @@ async function submitPrep(){
   if(items.length === 0 && !note){ showToast('Pick something first'); return; }
   try{
     const res = await fetch(API + '/api/prep/submissions', {
-      method:'POST', headers:{'Content-Type':'application/json'},
+      method:'POST', headers: authHeaders({'Content-Type':'application/json'}),
       body: JSON.stringify({ by: username, items: items, note: note })
     });
     if(!res.ok) throw new Error();
@@ -435,7 +633,7 @@ async function tickLine(lineId, done){
   render();
   try{
     const res = await fetch(API + '/api/prep/published/tick', {
-      method:'POST', headers:{'Content-Type':'application/json'},
+      method:'POST', headers: authHeaders({'Content-Type':'application/json'}),
       body: JSON.stringify({ id: lineId, by: username, done: done })
     });
     if(!res.ok) throw new Error();
@@ -456,7 +654,7 @@ async function sendOrder(){
   sending = true; render();
   try{
     const res = await fetch(API + '/api/order', {
-      method:'POST', headers:{'Content-Type':'application/json'},
+      method:'POST', headers: authHeaders({'Content-Type':'application/json'}),
       body: JSON.stringify({ items: items, sender: username })
     });
     if(!res.ok) throw new Error();
@@ -479,7 +677,7 @@ async function sendOrder(){
 /* ====== RENDER ====== */
 function render(){
   const app = document.getElementById('app');
-  if(!username){ app.innerHTML = renderGate(); attach(); return; }
+  if(!token){ app.innerHTML = renderGate(); attach(); return; }
 
   const homeBtn = view === 'home' ? '' :
     `<button class="home-btn" data-go="home" aria-label="Home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg></button>`;
@@ -488,6 +686,8 @@ function render(){
   else if(view === 'review') html += renderReview();
   else if(view === 'sent') html += renderSent();
   else if(view === 'prep') html += renderPrep();
+  else if(view === 'recipes') html += renderRecipes();
+  else if(view === 'recipe') html += renderRecipe();
   else if(view === 'prepAsk') html += renderPrepAsk();
   else if(view === 'prepSent') html += renderPrepSent();
   else html += renderHome();
@@ -500,10 +700,12 @@ function renderGate(){
     <div class="gate">
       <div class="mark">A</div>
       <h2>Almo Orders</h2>
-      <p>Send your orders and prep straight to the kitchen.</p>
-      <label for="name-input">Your name</label>
-      <input type="text" id="name-input" placeholder="First name" autocomplete="given-name" autocapitalize="words">
-      <button class="btn" id="gate-go">Get started</button>
+      <p>Enter the code the chef gave you. You only do this once on this phone.</p>
+      <label for="code-input">Access code</label>
+      <input type="text" id="code-input" class="code-input" placeholder="YOURCODE" maxlength="12" autocapitalize="characters" autocomplete="off" spellcheck="false">
+      ${authError ? `<div class="auth-error">${esc(authError)}</div>` : ''}
+      <button class="btn" id="gate-go" ${signingIn?'disabled':''}>${signingIn ? 'Checking…' : 'Sign in'}</button>
+      <p class="gate-foot">Ask the chef for your code if you don't have one.</p>
     </div>
   `;
 }
@@ -535,7 +737,15 @@ function renderHome(){
       </div>
       <div class="chev">&rsaquo;</div>
     </button>
-    <div class="footnote">Sending as ${esc(username)}. <button data-change-name="1">Not you?</button></div>
+    <button class="tile" data-go="recipes">
+      <div>
+        <div class="tile-title">Recipes</div>
+        <div class="tile-sub">The kitchen recipe book</div>
+        ${recipesLoaded ? `<div class="tile-count">${recipes.length} recipe${recipes.length===1?'':'s'}</div>` : ''}
+      </div>
+      <div class="chev">&rsaquo;</div>
+    </button>
+    <div class="footnote">Signed in as ${esc(username)}. <button data-signout="1">Sign out</button></div>
   `;
 }
 
@@ -669,6 +879,103 @@ function renderSent(){
     </div>
   `;
 }
+
+function renderRecipes(){
+  const q = recipeSearch.trim().toLowerCase();
+  let list = sortedRecipes();
+  if(q) list = list.filter(r => String(r.name).toLowerCase().indexOf(q) > -1);
+  else if(recipeFilter) list = list.filter(r => (r.section||'Other') === recipeFilter);
+
+  const secs = recipeSectionsInUse();
+  const chips = secs.length > 1 && !q ? `<div class="filter-row">
+      <button type="button" class="filter-chip ${recipeFilter?'':'on'}" data-rfilter="">All</button>
+      ${secs.map(s => `<button type="button" class="filter-chip ${recipeFilter===s?'on':''}" data-rfilter="${esc(s)}">${esc(s)}</button>`).join('')}
+    </div>` : '';
+
+  let body;
+  if(!recipesLoaded && recipes.length === 0){
+    body = `<div class="empty">Loading recipes…</div>`;
+  } else if(recipes.length === 0){
+    body = `<div class="empty">No recipes yet.</div>`;
+  } else if(list.length === 0){
+    body = `<div class="empty">Nothing matches "${esc(recipeSearch.trim())}".</div>`;
+  } else {
+    let out = '', lastKey = null;
+    const anyFav = list.some(r => favs[r.id]);
+    list.forEach(r => {
+      const key = favs[r.id] ? '\u2605 Favourites' : (r.section || 'Other');
+      if(!q && (!recipeFilter || favs[r.id]) && key !== lastKey){ lastKey = key; out += `<div class="sec-head">${esc(key)}</div>`; }
+      else if(!q && recipeFilter && key !== lastKey){ lastKey = key; }
+      out += `
+        <div class="recipe-row">
+          <button class="star ${favs[r.id]?'on':''}" data-fav="${esc(r.id)}" aria-label="${favs[r.id]?'Remove from favourites':'Add to favourites'}">${favs[r.id]?STAR_ON:STAR_OFF}</button>
+          <button class="recipe-open" data-open-recipe="${esc(r.id)}">
+            <span class="recipe-row-name">${esc(r.name)}</span>
+            ${(r.allergens||[]).length ? `<span class="recipe-row-sub">${esc(r.allergens.join(', '))}</span>` : ''}
+          </button>
+          <span class="chev">&rsaquo;</span>
+        </div>`;
+    });
+    body = out;
+  }
+
+  return `
+    <div class="crumb"><button data-go="home">&larr; Home</button></div>
+    <h2 class="screen-title">Recipes</h2>
+    <p class="screen-sub">Tap the star to keep one at the top.</p>
+    <div class="search-wrap ${recipeSearch?'filled':''}">
+      <input type="text" id="recipe-search" placeholder="Search recipes" value="${esc(recipeSearch)}" autocomplete="off">
+      <button class="search-clear" id="recipe-search-clear" aria-label="Clear">&times;</button>
+    </div>
+    ${chips}
+    <div class="card tight">${body}</div>
+  `;
+}
+
+function renderRecipe(){
+  const r = findRecipe(currentRecipe);
+  if(!r) return `<div class="crumb"><button data-go="recipes">&larr; Recipes</button></div><div class="empty">Recipe not found.</div>`;
+
+  const ing = (r.ingredients||[]).map(i => {
+    const f = fmtAmount(i.qty, i.unit);
+    const sub = recipeByName(i.item);
+    const cell = sub && sub.id !== r.id
+      ? `<button class="ri-link" data-open-recipe="${esc(sub.id)}">${esc(i.item)}<span class="ri-arrow">&rsaquo;</span></button>`
+      : esc(i.item);
+    return `<tr><td class="ri-amt">${esc(f.amount)}<span class="ri-unit">${esc(f.unit)}</span></td><td class="ri-item">${cell}</td></tr>`;
+  }).join('');
+
+  const steps = (r.method||[]).map((s,i)=>`<li><span class="rm-n">${i+1}</span><span class="rm-t">${esc(s)}</span></li>`).join('');
+  const subs = subRecipesOf(r);
+  const used = usedByRecipes(r);
+
+  return `
+    <div class="crumb"><button data-go="recipes">&larr; Recipes</button></div>
+    <div class="recipe-head">
+      <div class="recipe-top">
+        <div class="recipe-eyebrow">${esc(r.section || 'Other')}</div>
+        <button class="star big ${favs[r.id]?'on':''}" data-fav="${esc(r.id)}" aria-label="${favs[r.id]?'Remove from favourites':'Add to favourites'}">${favs[r.id]?STAR_ON:STAR_OFF}</button>
+      </div>
+      <h2 class="recipe-title">${esc(r.name)}</h2>
+      ${(r.allergens||[]).length ? `<div class="pill-row">${r.allergens.map(a=>`<span class="pill warn">${esc(a)}</span>`).join('')}</div>` : ''}
+      ${subs.length ? `<div class="sub-note">Make first: ${subs.map(s=>`<button class="sub-link" data-open-recipe="${esc(s.id)}">${esc(s.name)}</button>`).join(' &middot; ')}</div>` : ''}
+    </div>
+
+    <div class="section-label">Ingredients</div>
+    <div class="card tight">${ing ? `<table class="ri-table"><tbody>${ing}</tbody></table>` : '<div class="empty">No ingredients listed.</div>'}</div>
+
+    <div class="section-label">Method</div>
+    <div class="card">${steps ? `<ol class="rm-list">${steps}</ol>` : '<div class="empty">No method listed.</div>'}</div>
+
+    ${r.notes ? `<div class="section-label">Handy hints</div><div class="card"><div class="rn-text">${esc(r.notes)}</div></div>` : ''}
+
+    ${used.length ? `<div class="section-label">Used in</div><div class="card tight">${used.map(u=>`
+      <div class="recipe-row"><button class="recipe-open" data-open-recipe="${esc(u.id)}"><span class="recipe-row-name">${esc(u.name)}</span></button><span class="chev">&rsaquo;</span></div>`).join('')}</div>` : ''}
+  `;
+}
+
+const STAR_OFF = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 2.9 5.9 6.1.9-4.5 4.3 1.1 6.4L12 17.5 6.4 20.5l1.1-6.4L3 9.8l6.1-.9Z"/></svg>';
+const STAR_ON  = '<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="m12 3 2.9 5.9 6.1.9-4.5 4.3 1.1 6.4L12 17.5 6.4 20.5l1.1-6.4L3 9.8l6.1-.9Z"/></svg>';
 
 function renderPrep(){
   const lines = published ? published.lines : [];
@@ -842,23 +1149,57 @@ function attachProductHandlers(){
 function attach(){
   const gateGo = document.getElementById('gate-go');
   if(gateGo){
-    const input = document.getElementById('name-input');
+    const input = document.getElementById('code-input');
     const commit = ()=>{
-      const v = (input.value || '').trim();
-      if(!v){ showToast('Pop your name in first'); input.focus(); return; }
-      username = v.slice(0,40);
-      saveName();
-      view = 'home';
-      render();
-      fetchCatalogue();
-      refreshPrep();
+      const v = (input.value||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,12);
+      if(v.length < 4){ authError = 'That code looks too short'; render(); return; }
+      redeemCode(v);
     };
     gateGo.addEventListener('click', commit);
     input.addEventListener('keydown', e => { if(e.key === 'Enter') commit(); });
+    input.addEventListener('input', ()=>{
+      input.value = input.value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,12);
+    });
     setTimeout(()=>input.focus(), 60);
     return;
   }
 
+  document.querySelectorAll('[data-signout]').forEach(b => {
+    b.addEventListener('click', ()=>{
+      if(!confirm('Sign out of this phone? You will need a new code to get back in.')) return;
+      signedOut();
+    });
+  });
+
+  document.querySelectorAll('[data-fav]').forEach(b => {
+    b.addEventListener('click', ()=>{
+      const id = b.dataset.fav;
+      if(favs[id]) delete favs[id]; else favs[id] = 1;
+      saveFavs();
+      render();
+    });
+  });
+
+  document.querySelectorAll('[data-open-recipe]').forEach(b => {
+    b.addEventListener('click', ()=>{ currentRecipe = b.dataset.openRecipe; goto('recipe'); });
+  });
+
+  document.querySelectorAll('[data-rfilter]').forEach(b => {
+    b.addEventListener('click', ()=>{ recipeFilter = b.dataset.rfilter || null; render(); });
+  });
+
+  const rSearch = document.getElementById('recipe-search');
+  if(rSearch){
+    rSearch.addEventListener('input', ()=>{
+      recipeSearch = rSearch.value;
+      const pos = rSearch.selectionStart;
+      render();
+      const again = document.getElementById('recipe-search');
+      if(again){ again.focus(); try{ again.setSelectionRange(pos,pos); }catch(e){} }
+    });
+  }
+  const rClear = document.getElementById('recipe-search-clear');
+  if(rClear) rClear.addEventListener('click', ()=>{ recipeSearch=''; render(); });
 
   document.querySelectorAll('[data-tick]').forEach(b => {
     b.addEventListener('click', ()=> tickLine(b.dataset.tick, b.dataset.done !== '1'));
@@ -919,6 +1260,7 @@ function attach(){
       goto(target);
       if(target === 'prep' || target === 'prepAsk') refreshPrep();
       if(target === 'order') fetchCatalogue();
+      if(target === 'recipes') fetchRecipes();
     });
   });
 
@@ -954,14 +1296,6 @@ function attach(){
 
 
 
-  const changeName = document.querySelector('[data-change-name]');
-  if(changeName){
-    changeName.addEventListener('click', ()=>{
-      username = '';
-      saveName();
-      render();
-    });
-  }
 }
 
 /* ====== BOOT ====== */
@@ -973,11 +1307,10 @@ window.addEventListener('popstate', e => {
   render();
 });
 render();
-fetchCatalogue();
-refreshPrep();
+if(token){ fetchCatalogue(); refreshPrep(); fetchRecipes(); }
 
 document.addEventListener('visibilitychange', ()=>{
-  if(document.visibilityState === 'visible'){ fetchCatalogue(); refreshPrep(); }
+  if(document.visibilityState === 'visible'){ fetchCatalogue(); refreshPrep(); fetchRecipes(); }
 });
 
 if('serviceWorker' in navigator){
