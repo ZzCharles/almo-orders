@@ -264,7 +264,7 @@ textarea{min-height:78px;}
 <div class="toast" id="toast"></div>
 <script>
 const API = 'https://orders.charlesbobby253.workers.dev';
-const APP_VERSION = 'v3.3';
+const APP_VERSION = 'v3.5';
 
 /* The product list comes from The Pass via the Worker. This copy is only a
    cold-start fallback for a brand-new install with no connection. */
@@ -623,6 +623,8 @@ function addDaysKey(days){
 
 /* Same two rules as The Pass, including rounding the head count to the
    nearest five, so both apps always show the same number. */
+const DEFAULT_PER = 5;   // must match The Pass, or the two disagree
+
 function roundedPax(pax){
   const n = Math.max(0, Number(pax) || 0);
   return Math.round(n / 5) * 5;
@@ -630,7 +632,7 @@ function roundedPax(pax){
 function fnQty(item, pax){
   if(!item) return '';
   if(item.kind === 'set') return String(Math.max(0, Number(item.qty) || 0));
-  const per = Math.max(1, item.per || 1);
+  const per = Math.max(1, Number(item.per) || DEFAULT_PER);
   return String(Math.ceil(roundedPax(pax) / per));
 }
 
