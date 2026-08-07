@@ -86,6 +86,7 @@ body{
 .fn-qty{flex:0 0 auto;min-width:34px;font-size:15px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--stamp);}
 .fn-label{flex:1;font-size:15px;font-weight:600;line-height:1.35;}
 .fn-time{font-weight:800;color:var(--stamp);letter-spacing:0;text-transform:none;font-size:11px;}
+.fn-note{font-size:11px;color:var(--muted);font-weight:600;}
 .filter-row{display:flex;gap:7px;overflow-x:auto;padding:0 0 12px;margin:0 -16px 0;padding-left:16px;padding-right:16px;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
 .filter-row::-webkit-scrollbar{display:none;}
 .filter-chip{flex:0 0 auto;font-family:inherit;font-size:12px;font-weight:700;padding:9px 15px;border:1px solid var(--line);border-radius:999px;background:#fff;color:var(--ink-soft);cursor:pointer;display:flex;align-items:center;gap:6px;}
@@ -142,6 +143,11 @@ body{
 .pick-row.on .pick-box{background:var(--ink);border-color:var(--ink);color:#fff;}
 .pick-row.on .pick-name{font-weight:700;}
 .pick-name{flex:1;font-size:15px;font-weight:600;min-width:0;}
+.pick-row.already{opacity:.5;cursor:default;}
+.pick-note{font-size:10.5px;font-weight:800;letter-spacing:0.6px;text-transform:uppercase;color:var(--muted);}
+.chev-btn{flex:0 0 auto;width:44px;height:44px;margin:-9px -12px -9px 0;border:none;background:none;font-family:inherit;
+  font-size:19px;color:var(--line);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;}
+.chev-btn:active{color:var(--stamp);}
 .status-strip{background:#EDEBDF;color:#5B584C;border-radius:12px;padding:11px 15px;font-size:12.5px;font-weight:700;margin-bottom:14px;}
 .status-strip.ok{background:#EFF3E9;color:#4A6135;}
 .card.tight{padding:4px 16px;}
@@ -214,6 +220,7 @@ textarea{min-height:78px;}
 .fn-qty{flex:0 0 auto;min-width:34px;font-size:15px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--stamp);}
 .fn-label{flex:1;font-size:15px;font-weight:600;line-height:1.35;}
 .fn-time{font-weight:800;color:var(--stamp);letter-spacing:0;text-transform:none;font-size:11px;}
+.fn-note{font-size:11px;color:var(--muted);font-weight:600;}
 
 .done{padding-top:56px;text-align:center;}
 .done .tick{width:74px;height:74px;border-radius:50%;background:var(--ink);color:#fff;font-size:34px;display:flex;align-items:center;justify-content:center;margin:0 auto 22px;}
@@ -257,7 +264,7 @@ textarea{min-height:78px;}
 <div class="toast" id="toast"></div>
 <script>
 const API = 'https://orders.charlesbobby253.workers.dev';
-const APP_VERSION = 'v3.1';
+const APP_VERSION = 'v3.2';
 
 /* The product list comes from The Pass via the Worker. This copy is only a
    cold-start fallback for a brand-new install with no connection. */
@@ -277,7 +284,6 @@ const CART_KEY = 'almo-orders-cart';
 const NAME_KEY = 'almo-orders-name';
 const CAT_KEY  = 'almo-orders-catalogue';
 const PREPCAT_KEY = 'almo-orders-prepcat';
-const PREPSUB_KEY = 'almo-orders-last-prep-sub';
 const ORDSUB_KEY  = 'almo-orders-last-order-sub';
 const TOKEN_KEY   = 'almo-orders-token';
 const FAVS_KEY    = 'almo-orders-favs';
@@ -293,11 +299,10 @@ let username = '';
 let view = 'home';
 let search = '';
 let prepCat = { items:[], sections:[], loaded:false };
-let published = null;
+let prepLines = [];
 let prepPick = {};          // what I'm about to ask the chef for
 let prepNote = '';
 let prepSearch = '';
-let lastPrepSub = null;     // { id, at, count } so I can see it landed
 let lastOrderSub = null;
 let token = '';
 let staffId = '';
@@ -346,7 +351,6 @@ function loadLocal(){
     const fj = localStorage.getItem(FUNCS_KEY);
     if(fj){ const d = JSON.parse(fj); if(Array.isArray(d.functions)){ functions = d.functions; tiers = d.tiers||[]; fnLoaded = true; } }
   }catch(e){}
-  try{ lastPrepSub = JSON.parse(localStorage.getItem(PREPSUB_KEY) || 'null'); }catch(e){}
   try{ lastOrderSub = JSON.parse(localStorage.getItem(ORDSUB_KEY) || 'null'); }catch(e){}
 }
 function saveCart(){ try{ localStorage.setItem(CART_KEY, JSON.stringify(cart)); }catch(e){} }
@@ -620,6 +624,10 @@ function addDaysKey(days){
 function fnQty(item, pax){
   if(!item) return '';
   if(item.kind === 'text') return '';
+  if(item.kind === 'round'){
+    const per = Math.max(1, item.per || 1);
+    return Math.ceil((pax||0) / per) + ' per round';
+  }
   if(item.kind === 'fixed'){
     if(!item.perPax) return String(item.qty || 0);
     return String((item.qty || 0) * Math.max(1, Math.ceil((pax||0) / item.perPax)));
@@ -713,22 +721,37 @@ async function fetchPublished(){
     const res = await fetch(API + '/api/prep/published', {cache:'no-store', headers: authHeaders()});
     if(res.status === 401){ signedOut(); return; }
     const d = await res.json();
-    if(d && Array.isArray(d.lines)){ d.lines = applyRecentTicks(d.lines); published = d; }
-    else published = null;
+    if(d && Array.isArray(d.lines)) prepLines = applyRecentTicks(d.lines);
   }catch(e){}
+}
+
+async function addPrepLines(lines){
+  try{
+    const res = await fetch(API + '/api/prep/published/add', {
+      method:'POST', headers: authHeaders({'Content-Type':'application/json'}),
+      body: JSON.stringify({ by: username, lines: lines })
+    });
+    if(!res.ok) throw new Error();
+    await fetchPublished();
+    return true;
+  }catch(e){ showToast('No connection. Nothing was added.'); return false; }
+}
+
+async function removePrepLine(id){
+  const before = prepLines.slice();
+  prepLines = prepLines.filter(l => l.id !== id);
+  render();
+  try{
+    const res = await fetch(API + '/api/prep/published/remove', {
+      method:'POST', headers: authHeaders({'Content-Type':'application/json'}),
+      body: JSON.stringify({ id: id })
+    });
+    if(!res.ok) throw new Error();
+  }catch(e){ prepLines = before; render(); showToast('No connection. Not removed.'); }
 }
 
 /* Did the chef action what I sent? If my submission is gone from the server,
    it has been published or cleared. */
-async function checkPrepSub(){
-  if(!lastPrepSub) return;
-  try{
-    const res = await fetch(API + '/api/prep/submissions', {cache:'no-store', headers: authHeaders()});
-    const d = await res.json();
-    const still = (d.submissions||[]).some(s => s.id === lastPrepSub.id);
-    if(!still){ lastPrepSub = Object.assign({}, lastPrepSub, {actioned:true}); saveLastPrepSub(); }
-  }catch(e){}
-}
 async function checkOrderSub(){
   if(!lastOrderSub) return;
   try{
@@ -738,36 +761,15 @@ async function checkOrderSub(){
     if(!still){ lastOrderSub = Object.assign({}, lastOrderSub, {actioned:true}); saveLastOrderSub(); }
   }catch(e){}
 }
-function saveLastPrepSub(){ try{ localStorage.setItem(PREPSUB_KEY, JSON.stringify(lastPrepSub)); }catch(e){} }
 function saveLastOrderSub(){ try{ localStorage.setItem(ORDSUB_KEY, JSON.stringify(lastOrderSub)); }catch(e){} }
 
 async function refreshPrep(){
   await fetchPrepCat();
   await fetchPublished();
-  await checkPrepSub();
   await checkOrderSub();
   if(view === 'prep' || view === 'prepAsk' || view === 'home') render();
 }
 
-async function submitPrep(){
-  const items = prepCat.items.filter(i => prepPick[i.id]).map(i => i.name);
-  const note = prepNote.trim();
-  if(items.length === 0 && !note){ showToast('Pick something first'); return; }
-  try{
-    const res = await fetch(API + '/api/prep/submissions', {
-      method:'POST', headers: authHeaders({'Content-Type':'application/json'}),
-      body: JSON.stringify({ by: username, items: items, note: note })
-    });
-    if(!res.ok) throw new Error();
-    const d = await res.json();
-    lastPrepSub = { id: d.id, at: Date.now(), count: items.length + (note?1:0), actioned:false };
-    saveLastPrepSub();
-    prepPick = {}; prepNote = '';
-    goto('prepSent');
-  }catch(e){
-    showToast('No connection. Nothing was sent.');
-  }
-}
 
 /* See the note in The Pass: a freshly written tick may not show up in the next
    read, so recent local ticks win for a short window. */
@@ -788,10 +790,9 @@ function applyRecentTicks(lines){
 }
 
 async function tickLine(lineId, done){
-  if(!published) return;
-  const line = published.lines.find(l => l.id === lineId);
+  const line = prepLines.find(l => l.id === lineId);
   if(!line) return;
-  const before = JSON.parse(JSON.stringify(published.lines));
+  const before = JSON.parse(JSON.stringify(prepLines));
   line.done = done; line.doneBy = done ? username : ''; line.doneAt = done ? Date.now() : 0;
   rememberTick(lineId, done, username);
   render();
@@ -803,7 +804,7 @@ async function tickLine(lineId, done){
     if(!res.ok) throw new Error();
     await res.json().catch(()=>({}));
   }catch(e){
-    published.lines = before; render();
+    prepLines = before; render();
     showToast('No connection. Not saved.');
   }
 }
@@ -855,7 +856,6 @@ function render(){
   else if(view === 'fnView') html += renderFunction();
   else if(view === 'recipe') html += renderRecipe();
   else if(view === 'prepAsk') html += renderPrepAsk();
-  else if(view === 'prepSent') html += renderPrepSent();
   else html += renderHome();
   app.innerHTML = html;
   attach();
@@ -877,10 +877,9 @@ function renderGate(){
 }
 
 function prepTileCount(){
-  const lines = published ? published.lines : [];
-  if(!lines.length) return '';
-  const d = lines.filter(l=>l.done).length;
-  return `<div class="tile-count">${d===lines.length ? 'All done' : (lines.length-d)+' still to do'}</div>`;
+  if(!prepLines.length) return '';
+  const todo = prepLines.filter(l=>!l.done).length;
+  return `<div class="tile-count">${todo ? todo+' still to do' : 'All done'}</div>`;
 }
 
 function renderHome(){
@@ -1087,7 +1086,8 @@ function renderFunction(){
   const courses = sortCourses(f.courses).map(c => {
     const items = (c.items||[]).map(i => {
       const q = fnQty(i, f.pax);
-      return `<div class="fn-item"><span class="fn-qty">${q?esc(q)+' ×':'—'}</span><span class="fn-label">${esc(i.label)}</span></div>`;
+      const isRound = i.kind === 'round';
+      return `<div class="fn-item"><span class="fn-qty">${q?(isRound?esc(q.split(' ')[0]):esc(q)+' ×'):'—'}</span><span class="fn-label">${esc(i.label)}${isRound?' <span class="fn-note">per round</span>':''}</span></div>`;
     }).join('');
     if(!items) return '';
     return `
@@ -1214,65 +1214,67 @@ const STAR_OFF = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
 const STAR_ON  = '<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="m12 3 2.9 5.9 6.1.9-4.5 4.3 1.1 6.4L12 17.5 6.4 20.5l1.1-6.4L3 9.8l6.1-.9Z"/></svg>';
 
 function renderPrep(){
-  const lines = published ? published.lines : [];
-  const done = lines.filter(l => l.done).length;
+  const todo = prepLines.filter(l => !l.done);
+  const done = prepLines.filter(l => l.done);
 
-  let body;
-  if(lines.length === 0){
-    body = `<div class="empty">No prep list published yet.<br>The chef will put one up.</div>`;
-  } else {
+  const row = (l) => `
+    <div class="prep-item ${l.done?'is-done':''}">
+      <button class="prep-check ${l.done?'on':''}" data-tick="${esc(l.id)}" data-done="${l.done?'1':'0'}" aria-label="${l.done?'Mark not done':'Mark done'}">&#10003;</button>
+      <div class="prep-body">
+        <div class="prep-text">${esc(l.text)}</div>
+        <div class="prep-meta">${l.done
+          ? 'Completed by '+esc(l.doneBy||'someone')+(l.doneAt?' · '+timeAgo(l.doneAt):'')
+          : 'Added by '+esc(l.by||'someone')}</div>
+      </div>
+      ${l.recipe && findRecipe(l.recipe) ? `<button class="chev-btn" data-open-recipe="${esc(l.recipe)}" aria-label="Open recipe">&rsaquo;</button>` : ''}
+    </div>`;
+
+  const group = (list) => {
     let out = '', lastSec = null;
-    lines.forEach(l => {
+    list.slice().sort((a,b)=>String(a.section||'Other').localeCompare(String(b.section||'Other'))).forEach(l => {
       const sec = l.section || 'Other';
       if(sec !== lastSec){ lastSec = sec; out += `<div class="sec-head">${esc(sec)}</div>`; }
-      out += `
-        <div class="prep-item ${l.done?'is-done':''}">
-          <button class="prep-check ${l.done?'on':''}" data-tick="${esc(l.id)}" data-done="${l.done?'1':'0'}" aria-label="${l.done?'Mark not done':'Mark done'}">&#10003;</button>
-          <div class="prep-body">
-            <div class="prep-text">${esc(l.text)}</div>
-            ${l.done ? `<div class="prep-meta">Completed by ${esc(l.doneBy||'someone')}${l.doneAt?' · '+timeAgo(l.doneAt):''}</div>` : ''}
-          </div>
-        </div>`;
+      out += row(l);
     });
-    body = out;
-  }
-
-  let status = '';
-  if(lastPrepSub){
-    status = lastPrepSub.actioned
-      ? `<div class="status-strip ok">Your request was actioned by the chef.</div>`
-      : `<div class="status-strip">Submitted to chef · ${timeAgo(lastPrepSub.at)} · waiting</div>`;
-  }
+    return out;
+  };
 
   return `
     <div class="crumb"><button data-go="home">&larr; Home</button></div>
-    <h2 class="screen-title">Today's Prep List</h2>
-    <p class="screen-sub">${lines.length ? done+' of '+lines.length+' done · published '+timeAgo(published.publishedAt) : 'Nothing up yet.'}</p>
-    ${status}
-    <div class="card tight">${body}</div>
-    <div class="add-row"><button class="btn ghost" data-go="prepAsk">Add prep</button></div>
+    <h2 class="screen-title">Prep list</h2>
+    <p class="screen-sub">${todo.length ? todo.length+' to do' : 'Nothing left to do'}${done.length?' · '+done.length+' done':''}</p>
+    <div class="card tight">${todo.length ? group(todo) : '<div class="empty">Nothing on the list.<br>Add something below.</div>'}</div>
+    <div class="add-row"><button class="btn" data-go="prepAsk">+ Add prep</button></div>
+    ${done.length ? `
+      <div class="section-label">Completed</div>
+      <div class="card tight">${done.slice().reverse().map(row).join('')}</div>
+      <div class="sync-line">Only the chef can clear these.</div>` : ''}
   `;
 }
 
 function renderPrepAsk(){
   const q = prepSearch.trim().toLowerCase();
   const list = q ? prepCat.items.filter(i => i.name.toLowerCase().indexOf(q) > -1) : prepCat.items;
+  const onList = {};
+  prepLines.forEach(l => { if(!l.done) onList[String(l.text).toLowerCase()] = true; });
   const n = Object.keys(prepPick).filter(k => prepPick[k]).length;
 
   let rows;
   if(prepCat.items.length === 0){
-    rows = `<div class="empty">Nothing to pick from yet.<br>You can still write a note below.</div>`;
+    rows = `<div class="empty">Nothing to pick from yet.<br>You can still write a line below.</div>`;
   } else if(list.length === 0){
-    rows = `<div class="empty">Nothing matches "${esc(prepSearch.trim())}".<br>Write it in the note instead.</div>`;
+    rows = `<div class="empty">Nothing matches "${esc(prepSearch.trim())}".<br>Write it below instead.</div>`;
   } else {
     let out = '', lastSec = null;
     list.forEach(i => {
       const sec = i.section || 'Other';
       if(!q && sec !== lastSec){ lastSec = sec; out += `<div class="sec-head">${esc(sec)}</div>`; }
+      const already = onList[i.name.toLowerCase()];
       out += `
-        <div class="pick-row ${prepPick[i.id]?'on':''}" data-pick="${esc(i.id)}">
+        <div class="pick-row ${prepPick[i.id]?'on':''} ${already?'already':''}" ${already?'':`data-pick="${esc(i.id)}"`}>
           <span class="pick-box">&#10003;</span>
           <span class="pick-name">${esc(i.name)}</span>
+          ${already?'<span class="pick-note">on the list</span>':''}
         </div>`;
     });
     rows = out;
@@ -1281,29 +1283,16 @@ function renderPrepAsk(){
   return `
     <div class="crumb"><button data-go="prep">&larr; Prep list</button></div>
     <h2 class="screen-title">Add prep</h2>
-    <p class="screen-sub">Pick what you think needs doing. The chef decides what goes on the list.</p>
+    <p class="screen-sub">Goes straight on the list for everyone.</p>
     <div class="search-wrap ${prepSearch?'filled':''}">
       <input type="text" id="prep-search" placeholder="Search prep items" value="${esc(prepSearch)}" autocomplete="off">
       <button class="search-clear" id="prep-search-clear" aria-label="Clear">&times;</button>
     </div>
     <div class="card tight">${rows}</div>
     <div class="section-label">Anything else</div>
-    <div class="card">
-      <textarea id="prep-note" placeholder="Something not on the list?">${esc(prepNote)}</textarea>
-    </div>
+    <div class="card"><textarea id="prep-note" placeholder="A one-off line">${esc(prepNote)}</textarea></div>
     <div class="sticky-foot">
-      <button class="btn" id="prep-submit">${n ? 'Add '+n+' item'+(n===1?'':'s')+' to the list' : 'Add to the list'}</button>
-    </div>
-  `;
-}
-
-function renderPrepSent(){
-  return `
-    <div class="done">
-      <div class="tick">&#10003;</div>
-      <h2>Added</h2>
-      <p>Thanks ${esc(username)}. It'll appear on the prep list once the chef publishes it.</p>
-      <button class="btn ghost" data-go="prep">Back to prep list</button>
+      <button class="btn" id="prep-submit">${n ? 'Add '+n+' item'+(n===1?'':'s') : 'Add to the list'}</button>
     </div>
   `;
 }
@@ -1482,15 +1471,20 @@ function attach(){
 
   const pSubmit = document.getElementById('prep-submit');
   if(pSubmit){
-    pSubmit.addEventListener('click', ()=>{
+    pSubmit.addEventListener('click', async ()=>{
       const note = document.getElementById('prep-note');
       if(note) prepNote = note.value;
-      pSubmit.disabled = true;
-      pSubmit.textContent = 'Sending…';
-      submitPrep().then(()=>{
-        const b = document.getElementById('prep-submit');
-        if(b){ b.disabled = false; b.textContent = 'Add to the list'; }
-      });
+      const lines = prepCat.items.filter(i => prepPick[i.id])
+        .map(i => ({ text:i.name, section:i.section||'Other', recipe:i.recipe||'' }));
+      const extra = prepNote.trim();
+      if(extra) lines.push({ text: extra, section:'Anything else', recipe:'' });
+      if(lines.length === 0){ showToast('Pick something first'); return; }
+      pSubmit.disabled = true; pSubmit.textContent = 'Adding…';
+      const ok = await addPrepLines(lines);
+      if(!ok){ pSubmit.disabled = false; pSubmit.textContent = 'Add to the list'; return; }
+      prepPick = {}; prepNote = '';
+      goto('prep');
+      showToast('Added to the list');
     });
   }
 
