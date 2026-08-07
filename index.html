@@ -264,7 +264,7 @@ textarea{min-height:78px;}
 <div class="toast" id="toast"></div>
 <script>
 const API = 'https://orders.charlesbobby253.workers.dev';
-const APP_VERSION = 'v3.2';
+const APP_VERSION = 'v3.3';
 
 /* The product list comes from The Pass via the Worker. This copy is only a
    cold-start fallback for a brand-new install with no connection. */
@@ -577,25 +577,25 @@ function sortedRecipes(){
 
 const TIER_SEED = [
   { id:'49', label:'$49', items:[
-    { id:'i49a', label:'Polenta',        kind:'ratio', per:5, course:'Entrée' },
-    { id:'i49b', label:'Salad',          kind:'ratio', per:5, course:'Entrée' },
-    { id:'i49c', label:'Calamari',       kind:'ratio', per:5, course:'Entrée' },
+    { id:'i49a', label:'Polenta',        kind:'head', per:5, course:'Entrée' },
+    { id:'i49b', label:'Salad',          kind:'head', per:5, course:'Entrée' },
+    { id:'i49c', label:'Calamari',       kind:'head', per:5, course:'Entrée' },
     { id:'i49d', label:'Unlimited pizza', kind:'text',        course:'Main' }
   ]},
   { id:'59', label:'$59', items:[
-    { id:'i59a', label:'Bruschetta',      kind:'ratio', per:4, course:'Starter' },
-    { id:'i59b', label:'Cheese & Garlic', kind:'ratio', per:6, course:'Starter' },
-    { id:'i59c', label:'Polenta',         kind:'ratio', per:5, course:'Entrée' },
-    { id:'i59d', label:'Salad',           kind:'ratio', per:5, course:'Entrée' },
-    { id:'i59e', label:'Calamari',        kind:'ratio', per:5, course:'Entrée' },
+    { id:'i59a', label:'Bruschetta',      kind:'head', per:4, course:'Starter' },
+    { id:'i59b', label:'Cheese & Garlic', kind:'head', per:6, course:'Starter' },
+    { id:'i59c', label:'Polenta',         kind:'head', per:5, course:'Entrée' },
+    { id:'i59d', label:'Salad',           kind:'head', per:5, course:'Entrée' },
+    { id:'i59e', label:'Calamari',        kind:'head', per:5, course:'Entrée' },
     { id:'i59f', label:'Unlimited pizza', kind:'text',         course:'Main' }
   ]},
   { id:'69', label:'$69', items:[
-    { id:'i69a', label:'Bruschetta',      kind:'ratio', per:4, course:'Starter' },
-    { id:'i69b', label:'Cheese & Garlic', kind:'ratio', per:6, course:'Starter' },
-    { id:'i69c', label:'Polenta',         kind:'ratio', per:5, course:'Entrée' },
-    { id:'i69d', label:'Salad',           kind:'ratio', per:5, course:'Entrée' },
-    { id:'i69e', label:'Calamari',        kind:'ratio', per:5, course:'Entrée' },
+    { id:'i69a', label:'Bruschetta',      kind:'head', per:4, course:'Starter' },
+    { id:'i69b', label:'Cheese & Garlic', kind:'head', per:6, course:'Starter' },
+    { id:'i69c', label:'Polenta',         kind:'head', per:5, course:'Entrée' },
+    { id:'i69d', label:'Salad',           kind:'head', per:5, course:'Entrée' },
+    { id:'i69e', label:'Calamari',        kind:'head', per:5, course:'Entrée' },
     { id:'i69f', label:'Unlimited pizza', kind:'text',         course:'Main' },
     { id:'i69g', label:'Grand Tiramisu',  kind:'fixed', qty:36, perPax:50, course:'Dessert' }
   ]}
@@ -621,19 +621,17 @@ function addDaysKey(days){
   return d.getFullYear()+'-'+m+'-'+day;
 }
 
+/* Same two rules as The Pass, including rounding the head count to the
+   nearest five, so both apps always show the same number. */
+function roundedPax(pax){
+  const n = Math.max(0, Number(pax) || 0);
+  return Math.round(n / 5) * 5;
+}
 function fnQty(item, pax){
   if(!item) return '';
-  if(item.kind === 'text') return '';
-  if(item.kind === 'round'){
-    const per = Math.max(1, item.per || 1);
-    return Math.ceil((pax||0) / per) + ' per round';
-  }
-  if(item.kind === 'fixed'){
-    if(!item.perPax) return String(item.qty || 0);
-    return String((item.qty || 0) * Math.max(1, Math.ceil((pax||0) / item.perPax)));
-  }
+  if(item.kind === 'set') return String(Math.max(0, Number(item.qty) || 0));
   const per = Math.max(1, item.per || 1);
-  return String(Math.ceil((pax||0) / per));
+  return String(Math.ceil(roundedPax(pax) / per));
 }
 
 function fnDateLabel(key){
@@ -721,7 +719,7 @@ async function fetchPublished(){
     const res = await fetch(API + '/api/prep/published', {cache:'no-store', headers: authHeaders()});
     if(res.status === 401){ signedOut(); return; }
     const d = await res.json();
-    if(d && Array.isArray(d.lines)) prepLines = applyRecentTicks(d.lines);
+    if(d && Array.isArray(d.lines)) prepLines = mergeFresh(applyRecentTicks(d.lines), prepLines);
   }catch(e){}
 }
 
@@ -732,7 +730,15 @@ async function addPrepLines(lines){
       body: JSON.stringify({ by: username, lines: lines })
     });
     if(!res.ok) throw new Error();
-    await fetchPublished();
+    const d = await res.json().catch(()=>({}));
+    // shown immediately; KV's listing can lag a moment behind the write
+    const ids = Array.isArray(d.added) ? d.added : [];
+    lines.forEach((l, i) => {
+      prepLines.push(Object.assign({}, l, {
+        id: ids[i] || ('tmp'+Math.random().toString(36).slice(2,8)),
+        by: username, at: Date.now(), done:false, doneBy:'', doneAt:0
+      }));
+    });
     return true;
   }catch(e){ showToast('No connection. Nothing was added.'); return false; }
 }
@@ -778,6 +784,14 @@ const recentTicks = {};
    changes the same line it wins almost straight away. */
 const TICK_GRACE = 12000;
 function rememberTick(id, done, by){ recentTicks[id] = { done: done, by: by, at: Date.now() }; }
+
+function mergeFresh(fromServer, local){
+  const seen = {};
+  fromServer.forEach(l => { seen[l.id] = true; });
+  const cutoff = Date.now() - TICK_GRACE;
+  (local||[]).forEach(l => { if(!seen[l.id] && (l.at||0) > cutoff) fromServer.push(l); });
+  return fromServer;
+}
 function applyRecentTicks(lines){
   const cutoff = Date.now() - TICK_GRACE;
   return (lines||[]).map(l => {
@@ -1083,11 +1097,14 @@ function renderFunction(){
   const f = findFunction(currentFn);
   if(!f) return `<div class="crumb"><button data-go="functions">&larr; Functions</button></div><div class="empty">Function not found.</div>`;
 
+  const mezze = f.mezze ? `
+    <div class="section-label">Mezze</div>
+    <div class="card tight"><div class="fn-item"><span class="fn-qty">${f.mezze} ×</span><span class="fn-label">Mezze board</span></div></div>` : '';
+
   const courses = sortCourses(f.courses).map(c => {
     const items = (c.items||[]).map(i => {
       const q = fnQty(i, f.pax);
-      const isRound = i.kind === 'round';
-      return `<div class="fn-item"><span class="fn-qty">${q?(isRound?esc(q.split(' ')[0]):esc(q)+' ×'):'—'}</span><span class="fn-label">${esc(i.label)}${isRound?' <span class="fn-note">per round</span>':''}</span></div>`;
+      return `<div class="fn-item"><span class="fn-qty">${esc(q)} ×</span><span class="fn-label">${esc(i.label)}</span></div>`;
     }).join('');
     if(!items) return '';
     return `
@@ -1112,6 +1129,7 @@ function renderFunction(){
     </div>
     ${diet}
     ${f.notes?`<div class="section-label">Notes</div><div class="card"><div class="rn-text">${esc(f.notes)}</div></div>`:''}
+    ${mezze}
     ${courses || '<div class="card"><div class="empty">Running order not up yet.</div></div>'}
   `;
 }
