@@ -72,6 +72,20 @@ body{
 
 .sec-head{font-size:11px;font-weight:800;letter-spacing:1.4px;text-transform:uppercase;color:var(--muted);padding:16px 2px 7px;border-bottom:1px solid var(--line);}
 .sec-head:first-child{padding-top:10px;}
+.fn-row{display:flex;align-items:center;gap:13px;padding:13px 2px;border-bottom:1px solid #F5F3EA;cursor:pointer;}
+.fn-row:last-child{border-bottom:none;}
+.fn-row:active{background:#FBFAF4;}
+.fn-date{flex:0 0 auto;width:52px;text-align:center;background:#EDEBDF;border-radius:11px;padding:7px 4px;}
+.fn-dow{font-size:10px;font-weight:800;letter-spacing:0.8px;text-transform:uppercase;color:var(--stamp);}
+.fn-day{font-size:13px;font-weight:800;margin-top:1px;}
+.fn-main{flex:1;min-width:0;}
+.fn-name{font-size:15.5px;font-weight:700;}
+.fn-sub{font-size:11.5px;color:var(--muted);margin-top:2px;}
+.fn-item{display:flex;gap:11px;align-items:baseline;padding:10px 0;border-bottom:1px solid #F5F3EA;}
+.fn-item:last-child{border-bottom:none;}
+.fn-qty{flex:0 0 auto;min-width:34px;font-size:15px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--stamp);}
+.fn-label{flex:1;font-size:15px;font-weight:600;line-height:1.35;}
+.fn-time{font-weight:800;color:var(--stamp);letter-spacing:0;text-transform:none;font-size:11px;}
 .filter-row{display:flex;gap:7px;overflow-x:auto;padding:0 0 12px;margin:0 -16px 0;padding-left:16px;padding-right:16px;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
 .filter-row::-webkit-scrollbar{display:none;}
 .filter-chip{flex:0 0 auto;font-family:inherit;font-size:12px;font-weight:700;padding:9px 15px;border:1px solid var(--line);border-radius:999px;background:#fff;color:var(--ink-soft);cursor:pointer;display:flex;align-items:center;gap:6px;}
@@ -186,6 +200,20 @@ textarea{min-height:78px;}
 .rn-text{font-size:14px;line-height:1.5;white-space:pre-wrap;}
 .sec-head{font-size:11px;font-weight:800;letter-spacing:1.4px;text-transform:uppercase;color:var(--muted);padding:16px 2px 7px;border-bottom:1px solid var(--line);}
 .sec-head:first-child{padding-top:10px;}
+.fn-row{display:flex;align-items:center;gap:13px;padding:13px 2px;border-bottom:1px solid #F5F3EA;cursor:pointer;}
+.fn-row:last-child{border-bottom:none;}
+.fn-row:active{background:#FBFAF4;}
+.fn-date{flex:0 0 auto;width:52px;text-align:center;background:#EDEBDF;border-radius:11px;padding:7px 4px;}
+.fn-dow{font-size:10px;font-weight:800;letter-spacing:0.8px;text-transform:uppercase;color:var(--stamp);}
+.fn-day{font-size:13px;font-weight:800;margin-top:1px;}
+.fn-main{flex:1;min-width:0;}
+.fn-name{font-size:15.5px;font-weight:700;}
+.fn-sub{font-size:11.5px;color:var(--muted);margin-top:2px;}
+.fn-item{display:flex;gap:11px;align-items:baseline;padding:10px 0;border-bottom:1px solid #F5F3EA;}
+.fn-item:last-child{border-bottom:none;}
+.fn-qty{flex:0 0 auto;min-width:34px;font-size:15px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--stamp);}
+.fn-label{flex:1;font-size:15px;font-weight:600;line-height:1.35;}
+.fn-time{font-weight:800;color:var(--stamp);letter-spacing:0;text-transform:none;font-size:11px;}
 
 .done{padding-top:56px;text-align:center;}
 .done .tick{width:74px;height:74px;border-radius:50%;background:var(--ink);color:#fff;font-size:34px;display:flex;align-items:center;justify-content:center;margin:0 auto 22px;}
@@ -229,6 +257,7 @@ textarea{min-height:78px;}
 <div class="toast" id="toast"></div>
 <script>
 const API = 'https://orders.charlesbobby253.workers.dev';
+const APP_VERSION = 'v3.1';
 
 /* The product list comes from The Pass via the Worker. This copy is only a
    cold-start fallback for a brand-new install with no connection. */
@@ -253,6 +282,7 @@ const ORDSUB_KEY  = 'almo-orders-last-order-sub';
 const TOKEN_KEY   = 'almo-orders-token';
 const FAVS_KEY    = 'almo-orders-favs';
 const SRECIPES_KEY = 'almo-orders-staff-recipes';
+const FUNCS_KEY = 'almo-orders-functions';
 
 let products = FALLBACK.slice();
 let categories = FALLBACK_CATS.slice();
@@ -280,6 +310,10 @@ let favs = {};
 let recipeSearch = '';
 let recipeFilter = null;
 let currentRecipe = null;
+let functions = [];
+let tiers = [];
+let fnLoaded = false;
+let currentFn = null;
 let sending = false;
 
 function loadLocal(){
@@ -307,6 +341,10 @@ function loadLocal(){
   try{
     const sr = localStorage.getItem(SRECIPES_KEY);
     if(sr){ const d = JSON.parse(sr); if(Array.isArray(d.recipes)){ recipes = d.recipes; recipeSections = d.sections||[]; recipesLoaded = true; } }
+  }catch(e){}
+  try{
+    const fj = localStorage.getItem(FUNCS_KEY);
+    if(fj){ const d = JSON.parse(fj); if(Array.isArray(d.functions)){ functions = d.functions; tiers = d.tiers||[]; fnLoaded = true; } }
   }catch(e){}
   try{ lastPrepSub = JSON.parse(localStorage.getItem(PREPSUB_KEY) || 'null'); }catch(e){}
   try{ lastOrderSub = JSON.parse(localStorage.getItem(ORDSUB_KEY) || 'null'); }catch(e){}
@@ -452,7 +490,7 @@ function finishSignIn(d){
   signingIn = false; authError = '';
   view = 'home';
   render();
-  fetchCatalogue(); refreshPrep(); fetchRecipes();
+  fetchCatalogue(); refreshPrep(); fetchRecipes(); fetchFunctions();
 }
 
 function deviceLabel(){
@@ -526,6 +564,132 @@ function sortedRecipes(){
     if(ia !== ib) return (ia<0?999:ia) - (ib<0?999:ib);
     return String(a.name).localeCompare(String(b.name),'en',{sensitivity:'base'});
   });
+}
+
+/* ===== Functions =====
+   Quantities are rules, not numbers. "1 per 5" against 52 people gives 11, and
+   changing the head count re-does every line at once. Always rounds up: a
+   kitchen would rather have a spare than be one short. */
+
+const TIER_SEED = [
+  { id:'49', label:'$49', items:[
+    { id:'i49a', label:'Polenta',        kind:'ratio', per:5, course:'Entrée' },
+    { id:'i49b', label:'Salad',          kind:'ratio', per:5, course:'Entrée' },
+    { id:'i49c', label:'Calamari',       kind:'ratio', per:5, course:'Entrée' },
+    { id:'i49d', label:'Unlimited pizza', kind:'text',        course:'Main' }
+  ]},
+  { id:'59', label:'$59', items:[
+    { id:'i59a', label:'Bruschetta',      kind:'ratio', per:4, course:'Starter' },
+    { id:'i59b', label:'Cheese & Garlic', kind:'ratio', per:6, course:'Starter' },
+    { id:'i59c', label:'Polenta',         kind:'ratio', per:5, course:'Entrée' },
+    { id:'i59d', label:'Salad',           kind:'ratio', per:5, course:'Entrée' },
+    { id:'i59e', label:'Calamari',        kind:'ratio', per:5, course:'Entrée' },
+    { id:'i59f', label:'Unlimited pizza', kind:'text',         course:'Main' }
+  ]},
+  { id:'69', label:'$69', items:[
+    { id:'i69a', label:'Bruschetta',      kind:'ratio', per:4, course:'Starter' },
+    { id:'i69b', label:'Cheese & Garlic', kind:'ratio', per:6, course:'Starter' },
+    { id:'i69c', label:'Polenta',         kind:'ratio', per:5, course:'Entrée' },
+    { id:'i69d', label:'Salad',           kind:'ratio', per:5, course:'Entrée' },
+    { id:'i69e', label:'Calamari',        kind:'ratio', per:5, course:'Entrée' },
+    { id:'i69f', label:'Unlimited pizza', kind:'text',         course:'Main' },
+    { id:'i69g', label:'Grand Tiramisu',  kind:'fixed', qty:36, perPax:50, course:'Dessert' }
+  ]}
+];
+
+const COURSE_ORDER = ['Starter','Entrée','Main','Dessert'];
+
+/* Service day, not calendar day: before 5am still counts as last night, so a
+   function doesn't vanish off the screen while you're closing down. */
+function serviceDateKey(){
+  const d = new Date();
+  if(d.getHours() < 5) d.setDate(d.getDate() - 1);
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  return d.getFullYear()+'-'+m+'-'+day;
+}
+
+function addDaysKey(days){
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  return d.getFullYear()+'-'+m+'-'+day;
+}
+
+function fnQty(item, pax){
+  if(!item) return '';
+  if(item.kind === 'text') return '';
+  if(item.kind === 'fixed'){
+    if(!item.perPax) return String(item.qty || 0);
+    return String((item.qty || 0) * Math.max(1, Math.ceil((pax||0) / item.perPax)));
+  }
+  const per = Math.max(1, item.per || 1);
+  return String(Math.ceil((pax||0) / per));
+}
+
+function fnDateLabel(key){
+  const d = new Date(key + 'T00:00:00');
+  if(isNaN(d)) return key;
+  return d.toLocaleDateString('en-AU', { weekday:'short', day:'numeric', month:'short' });
+}
+
+function sortCourses(courses){
+  return (courses||[]).slice().sort((a,b)=>{
+    const ia = COURSE_ORDER.indexOf(a.name), ib = COURSE_ORDER.indexOf(b.name);
+    const sa = ia < 0 ? 50 : ia, sb = ib < 0 ? 50 : ib;
+    if(sa !== sb) return sa - sb;
+    return String(a.time||'').localeCompare(String(b.time||''));
+  });
+}
+
+/* Turns a tier template into the course list for a new function. */
+function coursesFromTier(tier){
+  if(!tier) return [];
+  const byCourse = {};
+  (tier.items||[]).forEach(i => {
+    const c = i.course || 'Main';
+    if(!byCourse[c]) byCourse[c] = [];
+    byCourse[c].push(Object.assign({}, i, { id: 'i'+Math.random().toString(36).slice(2,7) }));
+  });
+  const names = Object.keys(byCourse).sort((a,b)=>{
+    const ia = COURSE_ORDER.indexOf(a), ib = COURSE_ORDER.indexOf(b);
+    return (ia<0?50:ia) - (ib<0?50:ib);
+  });
+  return names.map(n => ({ id:'c'+Math.random().toString(36).slice(2,7), name:n, time:'', items:byCourse[n] }));
+}
+
+async function fetchFunctions(){
+  if(!token) return;
+  try{
+    const [fr, tr] = await Promise.all([
+      fetch(API + '/api/functions', {cache:'no-store', headers: authHeaders()}),
+      fetch(API + '/api/tiers', {cache:'no-store', headers: authHeaders()})
+    ]);
+    if(fr.status === 401){ signedOut(); return; }
+    if(fr.ok){
+      const d = await fr.json();
+      functions = Array.isArray(d.functions) ? d.functions : [];
+    }
+    if(tr.ok){
+      const d = await tr.json();
+      tiers = Array.isArray(d.tiers) ? d.tiers : [];
+    }
+    fnLoaded = true;
+    try{ localStorage.setItem(FUNCS_KEY, JSON.stringify({functions:functions, tiers:tiers})); }catch(e){}
+    if(view === 'functions' || view === 'home' || view === 'fnView') render();
+  }catch(e){}
+}
+
+function findFunction(id){ return functions.find(f => f.id === id); }
+function upcomingFunctions(){
+  const from = serviceDateKey(), to = addDaysKey(14);
+  return functions.filter(f => f.date >= from && f.date <= to)
+    .sort((a,b)=> a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+}
+function tierLabel(id){
+  const tr = tiers.find(x => x.id === id);
+  return tr ? tr.label : (id ? '$'+id : '');
 }
 
 /* ====== PREP ====== */
@@ -681,12 +845,14 @@ function render(){
 
   const homeBtn = view === 'home' ? '' :
     `<button class="home-btn" data-go="home" aria-label="Home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg></button>`;
-  let html = `<div class="brand"><h1>Almo Orders</h1><div class="brand-right">${homeBtn}<span class="tag">${esc(username)}</span></div></div>`;
+  let html = `<div class="brand"><h1>Almo Orders</h1><div class="brand-right">${homeBtn}<span class="tag">${esc(username)} &middot; ${APP_VERSION}</span></div></div>`;
   if(view === 'order') html += renderOrder();
   else if(view === 'review') html += renderReview();
   else if(view === 'sent') html += renderSent();
   else if(view === 'prep') html += renderPrep();
   else if(view === 'recipes') html += renderRecipes();
+  else if(view === 'functions') html += renderFunctions();
+  else if(view === 'fnView') html += renderFunction();
   else if(view === 'recipe') html += renderRecipe();
   else if(view === 'prepAsk') html += renderPrepAsk();
   else if(view === 'prepSent') html += renderPrepSent();
@@ -734,6 +900,14 @@ function renderHome(){
         <div class="tile-title">Prep list</div>
         <div class="tile-sub">Today's list, shared with the kitchen</div>
         ${prepTileCount()}
+      </div>
+      <div class="chev">&rsaquo;</div>
+    </button>
+    <button class="tile" data-go="functions">
+      <div>
+        <div class="tile-title">Functions</div>
+        <div class="tile-sub">What's coming up</div>
+        ${fnLoaded ? `<div class="tile-count">${upcomingFunctions().length ? upcomingFunctions().length+' in the next two weeks' : 'Nothing booked'}</div>` : ''}
       </div>
       <div class="chev">&rsaquo;</div>
     </button>
@@ -877,6 +1051,68 @@ function renderSent(){
       <p>Thanks ${esc(username)}. It'll show up on the head chef's app.</p>
       <button class="btn ghost" data-go="home">Back to home</button>
     </div>
+  `;
+}
+
+function renderFunctions(){
+  const list = upcomingFunctions();
+  let body;
+  if(!fnLoaded && list.length === 0) body = `<div class="empty">Loading…</div>`;
+  else if(list.length === 0) body = `<div class="empty">Nothing booked in the next two weeks.</div>`;
+  else body = list.map(f => `
+      <div class="fn-row" data-open-fn="${esc(f.id)}">
+        <div class="fn-date">
+          <div class="fn-dow">${esc(fnDateLabel(f.date).split(' ')[0])}</div>
+          <div class="fn-day">${esc(fnDateLabel(f.date).split(' ').slice(1).join(' '))}</div>
+        </div>
+        <div class="fn-main">
+          <div class="fn-name">${esc(f.name || 'Function')}</div>
+          <div class="fn-sub">${f.pax} pax${f.startTime?' · '+esc(f.startTime):''}</div>
+        </div>
+        <div class="chev">&rsaquo;</div>
+      </div>`).join('');
+
+  return `
+    <div class="crumb"><button data-go="home">&larr; Home</button></div>
+    <h2 class="screen-title">Functions</h2>
+    <p class="screen-sub">The next two weeks.</p>
+    <div class="card tight">${body}</div>
+  `;
+}
+
+function renderFunction(){
+  const f = findFunction(currentFn);
+  if(!f) return `<div class="crumb"><button data-go="functions">&larr; Functions</button></div><div class="empty">Function not found.</div>`;
+
+  const courses = sortCourses(f.courses).map(c => {
+    const items = (c.items||[]).map(i => {
+      const q = fnQty(i, f.pax);
+      return `<div class="fn-item"><span class="fn-qty">${q?esc(q)+' ×':'—'}</span><span class="fn-label">${esc(i.label)}</span></div>`;
+    }).join('');
+    if(!items) return '';
+    return `
+      <div class="section-label">${esc(c.name)}${c.time?` <span class="fn-time">${esc(c.time)}</span>`:''}</div>
+      <div class="card tight">${items}</div>`;
+  }).join('');
+
+  const diet = (f.dietary||[]).length
+    ? `<div class="section-label">Dietary requirements</div><div class="card tight">${f.dietary.map(d=>`<div class="fn-item"><span class="fn-label">${esc(d)}</span></div>`).join('')}</div>`
+    : '';
+
+  return `
+    <div class="crumb"><button data-go="functions">&larr; Functions</button></div>
+    <div class="recipe-head">
+      <div class="recipe-eyebrow">${esc(fnDateLabel(f.date))}</div>
+      <h2 class="recipe-title">${esc(f.name || 'Function')}</h2>
+      <div class="pill-row">
+        <span class="pill">${f.pax} pax</span>
+        ${f.tier?`<span class="pill">${esc(tierLabel(f.tier))}</span>`:''}
+        ${f.startTime?`<span class="pill">Starts ${esc(f.startTime)}</span>`:''}
+      </div>
+    </div>
+    ${diet}
+    ${f.notes?`<div class="section-label">Notes</div><div class="card"><div class="rn-text">${esc(f.notes)}</div></div>`:''}
+    ${courses || '<div class="card"><div class="empty">Running order not up yet.</div></div>'}
   `;
 }
 
@@ -1180,6 +1416,10 @@ function attach(){
     });
   });
 
+  document.querySelectorAll('[data-open-fn]').forEach(b => {
+    b.addEventListener('click', ()=>{ currentFn = b.dataset.openFn; goto('fnView'); });
+  });
+
   document.querySelectorAll('[data-open-recipe]').forEach(b => {
     b.addEventListener('click', ()=>{ currentRecipe = b.dataset.openRecipe; goto('recipe'); });
   });
@@ -1261,6 +1501,7 @@ function attach(){
       if(target === 'prep' || target === 'prepAsk') refreshPrep();
       if(target === 'order') fetchCatalogue();
       if(target === 'recipes') fetchRecipes();
+      if(target === 'functions') fetchFunctions();
     });
   });
 
@@ -1307,10 +1548,10 @@ window.addEventListener('popstate', e => {
   render();
 });
 render();
-if(token){ fetchCatalogue(); refreshPrep(); fetchRecipes(); }
+if(token){ fetchCatalogue(); refreshPrep(); fetchRecipes(); fetchFunctions(); }
 
 document.addEventListener('visibilitychange', ()=>{
-  if(document.visibilityState === 'visible'){ fetchCatalogue(); refreshPrep(); fetchRecipes(); }
+  if(document.visibilityState === 'visible'){ fetchCatalogue(); refreshPrep(); fetchRecipes(); fetchFunctions(); }
 });
 
 if('serviceWorker' in navigator){

@@ -1,6 +1,6 @@
 /* Almo Orders service worker
    Bump CACHE when you change index.html, or phones will keep serving the old copy. */
-const CACHE = 'almo-orders-v1';
+const CACHE = 'almo-orders-v2';
 const SHELL = ['./', './index.html', './manifest.json', './icon-192.png'];
 
 self.addEventListener('install', e => {
